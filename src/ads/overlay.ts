@@ -46,9 +46,9 @@ export class AdOverlay {
     const w1 = Math.ceil(ADSENSE.width / scale) + 6
     const h1 = Math.ceil(ADSENSE.height / scale) + 6
     // Sits below the rear-view mirror, right of centre, above the dash.
-    const top = MIRROR_REAR.y + MIRROR_REAR.h + 8
+    const top = MIRROR_REAR.y + MIRROR_REAR.h + 5
     const maxW = W - SAFE.left - SAFE.right - 40
-    const maxH = DASH_TOP - top - 12
+    const maxH = DASH_TOP - top - 4
     this.available = !rotated && w1 <= maxW && h1 <= maxH
     this.rect = { x: W - SAFE.right - w1 - 6, y: top, w: w1, h: h1 }
     this.el.style.width = `${ADSENSE.width}px`

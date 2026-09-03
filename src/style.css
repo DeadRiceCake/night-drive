@@ -1,5 +1,6 @@
 :root {
   --s: 4;
+  --u: 6;
   --ui-0: #101014;
   --ui-1: #1d1d24;
   --ui-2: #3a3a46;
@@ -19,7 +20,7 @@ body {
   background: #000;
   overflow: hidden;
   font-family: 'Silkscreen', 'DungGeunMo', 'Galmuri11', ui-monospace, monospace;
-  font-size: calc(var(--s) * 3px);
+  font-size: calc(var(--u) * 3px);
   color: var(--ui-4);
 }
 
@@ -74,16 +75,16 @@ body.crt #stage::after {
 }
 .ad-overlay-inner.placeholder {
   color: var(--ui-3);
-  border: calc(var(--s) * 1px) dashed var(--ui-2);
-  font-size: calc(var(--s) * 3px);
+  border: calc(var(--u) * 1px) dashed var(--ui-2);
+  font-size: calc(var(--u) * 3px);
 }
 
 /* ----------------------------------------------------------------- ui */
 #ui {
   position: absolute;
   z-index: 10;
-  top: calc(var(--s) * 4px);
-  left: calc(var(--s) * 4px);
+  top: calc(var(--u) * 4px);
+  left: calc(var(--u) * 4px);
 }
 #ui.idle .ui-toggle {
   visibility: hidden;
@@ -93,8 +94,8 @@ body.crt #stage::after {
   font: inherit;
   color: var(--ui-4);
   background: var(--ui-1);
-  border: calc(var(--s) * 1px) solid var(--ui-3);
-  padding: calc(var(--s) * 1px) calc(var(--s) * 2px);
+  border: calc(var(--u) * 1px) solid var(--ui-3);
+  padding: calc(var(--u) * 1px) calc(var(--u) * 2px);
   cursor: pointer;
   border-radius: 0;
   outline: none;
@@ -103,34 +104,34 @@ body.crt #stage::after {
   border-color: var(--ui-4);
 }
 #ui button:focus-visible {
-  outline: calc(var(--s) * 1px) dotted var(--warm);
-  outline-offset: calc(var(--s) * 1px);
+  outline: calc(var(--u) * 1px) dotted var(--warm);
+  outline-offset: calc(var(--u) * 1px);
 }
 #ui button:active {
   background: var(--ui-0);
-  transform: translate(calc(var(--s) * 1px), calc(var(--s) * 1px));
+  transform: translate(calc(var(--u) * 1px), calc(var(--u) * 1px));
 }
 .ui-toggle {
-  width: calc(var(--s) * 9px);
-  height: calc(var(--s) * 9px);
+  width: calc(var(--u) * 9px);
+  height: calc(var(--u) * 9px);
   padding: 0 !important;
-  font-size: calc(var(--s) * 5px) !important;
+  font-size: calc(var(--u) * 5px) !important;
   line-height: 1;
 }
 .ui-panel {
   position: absolute;
-  top: calc(var(--s) * 11px);
+  top: calc(var(--u) * 11px);
   left: 0;
-  width: calc(var(--s) * 100px);
-  max-height: calc(var(--s) * 160px);
+  width: calc(var(--u) * 100px);
+  max-height: calc(var(--u) * 160px);
   overflow-y: auto;
   background: var(--ui-0);
-  border: calc(var(--s) * 1px) solid var(--ui-3);
-  box-shadow: calc(var(--s) * 2px) calc(var(--s) * 2px) 0 var(--ui-2);
-  padding: calc(var(--s) * 4px);
+  border: calc(var(--u) * 1px) solid var(--ui-3);
+  box-shadow: calc(var(--u) * 2px) calc(var(--u) * 2px) 0 var(--ui-2);
+  padding: calc(var(--u) * 4px);
   display: flex;
   flex-direction: column;
-  gap: calc(var(--s) * 3px);
+  gap: calc(var(--u) * 3px);
 }
 .ui-panel[hidden],
 .ad-overlay[hidden] {
@@ -138,7 +139,7 @@ body.crt #stage::after {
 }
 .ui-label {
   color: var(--ui-3);
-  margin-bottom: calc(var(--s) * 1px);
+  margin-bottom: calc(var(--u) * 1px);
 }
 .ui-val {
   color: var(--ui-4);
@@ -148,7 +149,7 @@ body.crt #stage::after {
 }
 .ui-seg button {
   flex: 1;
-  margin-left: calc(var(--s) * -1px);
+  margin-left: calc(var(--u) * -1px);
 }
 .ui-seg button:first-child {
   margin-left: 0;
@@ -161,7 +162,7 @@ body.crt #stage::after {
 }
 .ui-line {
   display: flex;
-  gap: calc(var(--s) * 1px);
+  gap: calc(var(--u) * 1px);
 }
 .ui-line input {
   flex: 1;
@@ -171,37 +172,37 @@ body.crt #stage::after {
 .ui-check {
   display: flex;
   align-items: center;
-  gap: calc(var(--s) * 2px);
+  gap: calc(var(--u) * 2px);
   cursor: pointer;
 }
 .ui-check input {
   appearance: none;
-  width: calc(var(--s) * 5px);
-  height: calc(var(--s) * 5px);
+  width: calc(var(--u) * 5px);
+  height: calc(var(--u) * 5px);
   margin: 0;
-  border: calc(var(--s) * 1px) solid var(--ui-3);
+  border: calc(var(--u) * 1px) solid var(--ui-3);
   background: var(--ui-1);
 }
 .ui-check input:checked {
   background: var(--warm);
-  box-shadow: inset 0 0 0 calc(var(--s) * 1px) var(--ui-0);
+  box-shadow: inset 0 0 0 calc(var(--u) * 1px) var(--ui-0);
 }
 input[type='range'] {
   width: 100%;
   appearance: none;
-  height: calc(var(--s) * 2px);
+  height: calc(var(--u) * 2px);
   background: var(--ui-2);
-  margin: calc(var(--s) * 2px) 0;
+  margin: calc(var(--u) * 2px) 0;
 }
 input[type='range']::-webkit-slider-thumb {
   appearance: none;
-  width: calc(var(--s) * 5px);
-  height: calc(var(--s) * 5px);
+  width: calc(var(--u) * 5px);
+  height: calc(var(--u) * 5px);
   background: var(--ui-4);
   border: 0;
   cursor: pointer;
 }
 .ui-foot {
   color: var(--ui-3);
-  font-size: calc(var(--s) * 2.5px);
+  font-size: calc(var(--u) * 2.5px);
 }

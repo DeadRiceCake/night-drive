@@ -1,6 +1,8 @@
 // Design tokens (see DESIGN_SYSTEM.md). All sizes are backbuffer pixels.
-export const W = 320
-export const H = 180
+export const W = 480
+export const H = 270
+/** Scale of the backbuffer relative to the original 320x180 layout. */
+export const K = W / 320
 export const TILE = 8
 
 // Road / projection (world units)
@@ -16,15 +18,15 @@ export const LANE_ONCOMING = [-0.72, -0.28]
 export const LANE_OURS = [0.28, 0.72]
 
 // Speeds (world units / second)
-export const SPEED_CRUISE = 7200
-export const TRAFFIC_SPEED_MIN = 4200
-export const TRAFFIC_SPEED_MAX = 6600
+export const SPEED_CRUISE = 4800
+export const TRAFFIC_SPEED_MIN = 2800
+export const TRAFFIC_SPEED_MAX = 4400
 
 // Cockpit geometry
-export const DASH_TOP = 122
-export const MIRROR_REAR = { x: 234, y: 9, w: 64, h: 20 }
-export const MIRROR_SIDE = { x: 3, y: 121, w: 40, h: 22 }
-export const SAFE = { top: 8, left: 16, right: 16, bottom: H - DASH_TOP }
+export const DASH_TOP = 183
+export const MIRROR_REAR = { x: 351, y: 13, w: 96, h: 30 }
+export const MIRROR_SIDE = { x: 4, y: 182, w: 60, h: 33 }
+export const SAFE = { top: 12, left: 24, right: 24, bottom: H - DASH_TOP }
 
 // Motion (ticks @ 60Hz)
 export const TICK = 1 / 60

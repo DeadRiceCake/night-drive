@@ -2,7 +2,7 @@ import { Framebuffer } from '../core/framebuffer'
 import { pal } from '../core/palette'
 import { mulberry32, smoothNoise } from '../core/rng'
 import { blank, setPx, fillRect, type Sprite } from '../core/sprite'
-import type { Biome } from '../tokens'
+import { K, type Biome } from '../tokens'
 
 export interface BgLayers {
   /** Furthest (lightest) layer. */
@@ -14,9 +14,12 @@ export interface BgLayers {
   nearSpeed: number
 }
 
-const LW = 512
+const LW = Math.round(512 * K)
 
 function mountains(seed: number, h: number, base: number, amp: number, ramp: number, freq: number): Sprite {
+  h = Math.round(h * K)
+  base = Math.round(base * K)
+  amp *= K
   const s = blank(LW, h)
   for (let x = 0; x < LW; x++) {
     // periodic noise so the layer wraps seamlessly
@@ -45,12 +48,13 @@ function mountains(seed: number, h: number, base: number, amp: number, ramp: num
 }
 
 function skyline(seed: number, h: number, lit: boolean): Sprite {
+  h = Math.round(h * K)
   const rng = mulberry32(seed ^ 0x51c7)
   const s = blank(LW, h)
   let x = 0
   while (x < LW) {
-    const w = rng.int(6, 22)
-    const bh = rng.int(8, h - 4)
+    const w = rng.int(Math.round(6 * K), Math.round(22 * K))
+    const bh = rng.int(Math.round(8 * K), h - 4)
     const top = h - bh
     const shade = rng.chance(0.5) ? 0 : 1
     fillRect(s, x, top, w, bh, pal('far', shade))

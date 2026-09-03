@@ -1,7 +1,7 @@
 import { Framebuffer } from '../core/framebuffer'
 import { pal } from '../core/palette'
 import { mulberry32 } from '../core/rng'
-import { DASH_TOP, W, type TimePreset } from '../tokens'
+import { DASH_TOP, K, W, type TimePreset } from '../tokens'
 
 export type Weather = 'clear' | 'rain' | 'fog'
 
@@ -22,7 +22,7 @@ export class Rain {
   private wiperT = 0
   active = false
 
-  constructor(count = 90) {
+  constructor(count = Math.round(90 * K * K)) {
     for (let i = 0; i < count; i++) this.drops.push(this.spawn(true))
   }
 
@@ -30,8 +30,8 @@ export class Rain {
     return {
       x: this.rng.int(-10, W + 10),
       y: anywhere ? this.rng.int(0, DASH_TOP) : this.rng.int(-12, 0),
-      len: this.rng.int(3, 7),
-      speed: this.rng.int(3, 6),
+      len: this.rng.int(Math.round(3 * K), Math.round(7 * K)),
+      speed: this.rng.int(Math.round(3 * K), Math.round(6 * K)),
     }
   }
 
@@ -62,14 +62,15 @@ export class Rain {
     }
     // wipers: pivots near the dash, blades sweep upward
     const a = this.wiperAngle()
-    for (const px of [104, 226]) {
+    for (const px of [Math.round(104 * K), Math.round(226 * K)]) {
       const py = DASH_TOP + 2
-      const len = 62
+      const len = Math.round(62 * K)
       const x1 = Math.round(px + Math.cos(a) * len)
       const y1 = Math.round(py - Math.sin(a) * len)
       fb.line(px - 1, py, x1 - 1, y1, pal('cockpit', 2))
       fb.line(px, py, x1, y1, pal('cockpit', 0))
       fb.line(px + 1, py, x1 + 1, y1, pal('cockpit', 0))
+      fb.line(px + 2, py, x1 + 2, y1, pal('cockpit', 2))
     }
   }
 }

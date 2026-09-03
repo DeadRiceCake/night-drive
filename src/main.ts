@@ -15,7 +15,7 @@ import { DriveAudio } from './audio'
 import { loadSettings, mountSettings, resolveTime, type Settings } from './ui/settings'
 import { W, H, DRAW_DIST, REAR_DRAW_DIST, DASH_TOP, CAM_H, FOV, MIRROR_REAR, MIRROR_SIDE, SEG_LEN, SPEED_CRUISE, type TimePreset } from './tokens'
 
-const HORIZON = 96
+const HORIZON = Math.round(H * 0.533)
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1'
 
 // ------------------------------------------------------------------ DOM
@@ -42,6 +42,8 @@ function resize(): void {
   stage.style.height = `${H * scale}px`
   stage.classList.toggle('portrait', portrait)
   document.documentElement.style.setProperty('--s', String(scale))
+  // UI unit: keeps DOM controls the same physical size as at 320x180 x4.
+  document.documentElement.style.setProperty('--u', String(Math.max(2, Math.round((scale * W) / 320))))
   overlay.layout(scale, portrait)
 }
 
@@ -186,8 +188,8 @@ function render(): void {
   drawCockpit(
     fb,
     {
-      speedKmh: (world.speed / SPEED_CRUISE) * 96,
-      rpm: 0.28 + (world.speed / SPEED_CRUISE) * 0.22 + Math.sin(world.tick / 7) * 0.01,
+      speedKmh: (world.speed / SPEED_CRUISE) * 80,
+      rpm: 0.22 + (world.speed / SPEED_CRUISE) * 0.26 + Math.sin(world.tick / 7) * 0.01,
       steer: world.steer,
       signal: world.signal,
       tick: world.tick,
@@ -196,8 +198,8 @@ function render(): void {
     { rear: rearFb, side: sideFb },
   )
   if (DEBUG) {
-    drawText(fb, 40, 6, `${fps} FPS ${frameMs.toFixed(1)}MS`, pal('ui', 4))
-    drawText(fb, 40, 13, `SEG ${world.baseIndex} ${world.biome.toUpperCase()} ${world.base.kind.toUpperCase()}`, pal('ui', 3))
+    drawText(fb, 60, 8, `${fps} FPS ${frameMs.toFixed(1)}MS`, pal('ui', 4))
+    drawText(fb, 60, 15, `SEG ${world.baseIndex} ${world.biome.toUpperCase()} ${world.base.kind.toUpperCase()} SPD ${Math.round(world.speed)}`, pal('ui', 3))
   }
   fb.present(pixels, lut)
   ctx.putImageData(image, 0, 0)

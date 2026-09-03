@@ -2,9 +2,9 @@ import { Framebuffer } from '../core/framebuffer'
 import { pal } from '../core/palette'
 import { hash2, mulberry32 } from '../core/rng'
 import { blank, setPx, type Sprite } from '../core/sprite'
-import type { TimePreset } from '../tokens'
+import { K, type TimePreset } from '../tokens'
 
-const STAR_FIELD_W = 1024
+const STAR_FIELD_W = Math.round(1024 * K)
 
 interface Star {
   x: number
@@ -20,7 +20,7 @@ let clouds: Sprite[] | null = null
 function makeStars(seed: number): Star[] {
   const rng = mulberry32(seed ^ 0x5747)
   const out: Star[] = []
-  for (let i = 0; i < 260; i++) {
+  for (let i = 0; i < Math.round(260 * K * K); i++) {
     const r = rng.next()
     out.push({
       x: rng.int(0, STAR_FIELD_W - 1),
@@ -34,7 +34,7 @@ function makeStars(seed: number): Star[] {
 
 /** Procedural spiral galaxy, drawn with the galaxy ramp + dither. */
 function makeGalaxy(seed: number): Sprite {
-  const w = 150, h = 76
+  const w = Math.round(150 * K), h = Math.round(76 * K)
   const s = blank(w, h)
   const cx = w / 2, cy = h / 2
   const ang = -0.45
@@ -73,7 +73,7 @@ function makeGalaxy(seed: number): Sprite {
   }
   // Sprinkle bright stars in the disk
   const rng = mulberry32(seed ^ 0x6a1a)
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < Math.round(40 * K); i++) {
     const x = rng.int(6, w - 7), y = rng.int(4, h - 5)
     if (s.d[y * w + x]) setPx(s, x, y, pal('star', 2))
   }
@@ -84,11 +84,11 @@ function makeClouds(seed: number): Sprite[] {
   const rng = mulberry32(seed ^ 0xc10d)
   const out: Sprite[] = []
   for (let i = 0; i < 5; i++) {
-    const w = rng.int(28, 70), h = rng.int(8, 16)
+    const w = rng.int(Math.round(28 * K), Math.round(70 * K)), h = rng.int(Math.round(8 * K), Math.round(16 * K))
     const s = blank(w, h)
     const blobs = rng.int(3, 6)
     for (let b = 0; b < blobs; b++) {
-      const bx = rng.int(4, w - 5), by = rng.int(h / 2, h - 2), br = rng.int(4, Math.max(5, h - 2))
+      const bx = rng.int(4, w - 5), by = rng.int(h / 2, h - 2), br = rng.int(Math.round(4 * K), Math.max(Math.round(5 * K), h - 2))
       for (let y = 0; y < h; y++)
         for (let x = 0; x < w; x++) {
           const dx = (x - bx) / (br * 1.8), dy = (y - by) / br
@@ -158,7 +158,7 @@ export function renderSky(fb: Framebuffer, preset: TimePreset, horizon: number, 
     const px = Math.round(offset * 0.08)
     for (let i = 0; i < clouds.length; i++) {
       const c = clouds[i]
-      const baseX = (i * 197 + 40) % STAR_FIELD_W
+      const baseX = Math.round((i * 197 + 40) * K) % STAR_FIELD_W
       let cx = (baseX - px) % STAR_FIELD_W
       if (cx < 0) cx += STAR_FIELD_W
       const cy = Math.round(horizon * (0.18 + 0.12 * ((i * 37) % 5) / 5))

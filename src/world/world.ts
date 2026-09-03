@@ -113,7 +113,6 @@ export class World {
   update(dt: number): void {
     this.tick++
     const cruise = SPEED_CRUISE * this.cfg.speedMul
-    this.speed += (cruise - this.speed) * Math.min(1, dt * 1.5)
     const base = this.base
     const dz = this.speed * dt
     this.position += dz
@@ -122,28 +121,44 @@ export class World {
 
     // --- traffic
     const density = DENSITY[this.biome]
-    this.traffic.update(dt, this.position, cruise, density, DRAW_DIST)
+    const me = { z: this.position, x: this.playerX, speed: this.speed }
+    this.traffic.update(dt, this.position, cruise, density, DRAW_DIST, me)
 
-    // --- auto lane choice: overtake slower cars, return to the right lane
+    // --- auto driving: follow the car ahead, overtake only into a free lane,
+    //     return to the right lane when it is clear.
     this.laneCooldown -= dt
     const right = LANE_OURS[1], left = LANE_OURS[0]
-    if (this.laneCooldown <= 0) {
-      const ahead = this.traffic.ahead(this.position, this.targetX, 14)
-      if (ahead && ahead.speed < this.speed * 0.97) {
+    let desired = cruise
+    const ahead = this.traffic.ahead(this.position, this.targetX, 18)
+    if (ahead) {
+      const gap = (ahead.z - this.position) / SEG_LEN
+      const slower = ahead.speed < this.speed * 0.98
+      if (slower || gap < 6) {
         const other = this.targetX === right ? left : right
-        if (!this.traffic.laneBusy(this.position, other, 10, 12)) {
+        if (this.laneCooldown <= 0 && gap > 2.5 && !this.traffic.laneBusy(this.position, other, 8, 14)) {
           this.targetX = other
-          this.signal = other < this.targetX ? -1 : other === left ? -1 : 1
+          this.signal = other === left ? -1 : 1
           this.laneCooldown = 4
+        } else if (gap < 10) {
+          // Keep a following distance; brake harder when close.
+          desired = Math.min(desired, ahead.speed * (gap < 4 ? 0.85 : 0.97))
         }
-      } else if (this.targetX === left && !this.traffic.laneBusy(this.position, right, 6, 16)) {
-        this.targetX = right
-        this.signal = 1
-        this.laneCooldown = 5
       }
+    } else if (this.targetX === left && this.laneCooldown <= 0 && !this.traffic.laneBusy(this.position, right, 6, 16)) {
+      this.targetX = right
+      this.signal = 1
+      this.laneCooldown = 5
     }
+    // While changing lanes, also respect the lane we are moving through.
+    if (this.playerX !== this.targetX) {
+      const a2 = this.traffic.ahead(this.position, this.playerX, 8)
+      if (a2 && a2.speed < this.speed) desired = Math.min(desired, a2.speed)
+    }
+    const rate = desired < this.speed ? 2.5 : 0.6
+    this.speed += (desired - this.speed) * Math.min(1, dt * rate)
+
     const diff = this.targetX - this.playerX
-    const step = Math.sign(diff) * Math.min(Math.abs(diff), 0.35 * dt)
+    const step = Math.sign(diff) * Math.min(Math.abs(diff), 0.3 * dt)
     this.playerX += step
     if (Math.abs(diff) < 0.01) {
       this.playerX = this.targetX
