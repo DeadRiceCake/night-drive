@@ -5,6 +5,7 @@ export function countryside(b: RoadBuilder, ctx: ChunkCtx): void {
   const { rng, props } = ctx
   const start = b.nextIndex
   const sections = rng.int(4, 7)
+  let tunnelFrom = -1, tunnelTo = -1
   for (let i = 0; i < sections; i++) {
     const r = rng.next()
     const sign = rng.chance(0.5) ? 1 : -1
@@ -12,6 +13,14 @@ export function countryside(b: RoadBuilder, ctx: ChunkCtx): void {
     else if (r < 0.6) b.curve(rng.int(30, 80), sign * rng.pick([CURVE.easy, CURVE.medium]))
     else if (r < 0.85) b.hill(rng.int(40, 90), rng.pick([HILL.low, HILL.medium]))
     else b.curve(rng.int(40, 80), sign * CURVE.easy, rng.pick([HILL.low, -HILL.low]))
+  }
+  if (tunnelFrom < 0 && rng.chance(0.35)) {
+    b.straight(12)
+    tunnelFrom = b.nextIndex
+    b.curve(rng.int(50, 90), (rng.chance(0.5) ? 1 : -1) * CURVE.easy)
+    tunnelTo = b.nextIndex
+    b.straight(12)
+    b.mark(tunnelFrom, tunnelTo, 'tunnel')
   }
   b.settle(24)
 
@@ -26,6 +35,8 @@ export function countryside(b: RoadBuilder, ctx: ChunkCtx): void {
 
   for (const seg of b.segments) {
     const i = seg.index
+    if (i === tunnelFrom || i === tunnelTo) seg.props.push(props.tunnelPortal())
+    if (seg.kind === 'tunnel') continue
     if (i % 14 === 0) seg.props.push(props.utilityPole(1, 1.22))
     if (i % 14 === 7 && rng.chance(0.3)) seg.props.push(props.utilityPole(-1, 1.22))
 

@@ -23,6 +23,8 @@ export interface View {
   /** Fog color index and strength 0..1. */
   fogColor: number
   fogStrength: number
+  /** Fraction of draw distance at which fog begins (default 0.45). */
+  fogStart?: number
   /** Global tick for animations. */
   tick: number
 }
@@ -79,6 +81,9 @@ export function renderRoad(fb: Framebuffer, src: SegmentSource, v: View, stats: 
   stats.roadR.fill(-1)
   stats.lights.length = 0
   let maxy = v.bottom
+  // Tunnel ceilings tile downward from the top as segments get farther.
+  // When the camera is inside a tunnel the first strip starts at row 0.
+  const ceil = { max: 0, inside: base.kind === 'tunnel' }
 
   let x = 0
   let dx = v.dir === 1 ? -(base.curve * basePercent) : base.curve * (1 - basePercent)
@@ -114,7 +119,7 @@ export function renderRoad(fb: Framebuffer, src: SegmentSource, v: View, stats: 
       continue
     }
 
-    drawSegment(fb, seg, n, v, stats, maxy)
+    drawSegment(fb, seg, n, v, stats, maxy, ceil)
     maxy = Math.min(maxy, seg.p1.y)
     visible.push(seg)
   }
@@ -141,16 +146,35 @@ export function renderRoad(fb: Framebuffer, src: SegmentSource, v: View, stats: 
 function fogLevel(n: number, v: View): number {
   if (v.fogStrength <= 0) return 0
   const t = n / v.drawDist
-  // Starts at 45% distance, saturates at the far end.
-  const f = Math.max(0, (t - 0.45) / 0.55) * v.fogStrength
+  const start = v.fogStart ?? 0.45
+  // Starts at `start` distance, saturates at the far end.
+  const f = Math.max(0, (t - start) / (1 - start)) * v.fogStrength
   return Math.min(16, Math.round(f * 16))
 }
 
-function drawSegment(fb: Framebuffer, seg: Segment, n: number, v: View, stats: RenderStats, maxy: number): void {
+const CEIL_H = 0.7
+
+function drawSegment(fb: Framebuffer, seg: Segment, n: number, v: View, stats: RenderStats, maxy: number, ceil: { max: number; inside: boolean }): void {
   const p1 = seg.p1, p2 = seg.p2
   const y2 = Math.max(p2.y, 0)
   const y1 = Math.min(p1.y, maxy)
   if (y1 <= y2) return
+  // Tunnel ceiling strip for this segment (drawn before the road so the
+  // road rows of farther segments can never be covered by it).
+  if (seg.kind === 'tunnel' && seg.ceiling) {
+    const c1 = ceil.inside ? ceil.max : Math.max(ceil.max, p1.y - Math.round(p1.w * CEIL_H))
+    const c2 = Math.min(y2, p2.y - Math.round(p2.w * CEIL_H))
+    if (c2 > c1) {
+      const ceilCol = (seg.index % 6) < 3 ? pal('struct', 0) : pal('struct', 1)
+      fb.fillRect(0, c1, fb.w, c2 - c1, ceilCol)
+      if (seg.index % 4 === 0 && c2 - c1 >= 1) {
+        const lw = Math.max(1, p2.w >> 4)
+        fb.hline(p2.x - lw, p2.x + lw, c2 - 1, pal('lightWarm', 3))
+        stats.lights.push({ x: p2.x, y: c2 + 2, s: p2.w >> 2, kind: 'warm' })
+      }
+      ceil.max = Math.max(ceil.max, c2)
+    }
+  }
   const alt = (seg.index % 6) < 3
   const fog = fogLevel(n, v)
   const dark = v.preset === 'night'
@@ -171,11 +195,13 @@ function drawSegment(fb: Framebuffer, seg: Segment, n: number, v: View, stats: R
     const lw = Math.max(1, w >> 5)
     // ground
     if (isTunnel) {
-      fb.hline(0, cx - w - rw - 1, y, pal('struct', 0))
-      fb.hline(cx + w + rw + 1, fb.w - 1, y, pal('struct', 0))
+      const wallCol = alt ? pal('struct', 1) : pal('struct', 2)
+      fb.hline(0, cx - w - rw - 1, y, wallCol)
+      fb.hline(cx + w + rw + 1, fb.w - 1, y, wallCol)
     } else if (isBridge) {
-      fb.hline(0, cx - w - rw - 1, y, pal('far', dark ? 0 : 1))
-      fb.hline(cx + w + rw + 1, fb.w - 1, y, pal('far', dark ? 0 : 1))
+      // water beside the deck
+      fb.hline(0, cx - w - rw - 1, y, alt ? pal('sky', 1) : pal('sky', 2))
+      fb.hline(cx + w + rw + 1, fb.w - 1, y, alt ? pal('sky', 1) : pal('sky', 2))
     } else {
       fb.hline(0, cx - w - rw - 1, y, alt ? groundA : groundB)
       fb.hline(cx + w + rw + 1, fb.w - 1, y, alt ? groundA : groundB)

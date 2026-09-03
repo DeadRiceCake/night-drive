@@ -175,6 +175,19 @@ export class World {
     return false
   }
 
+  /** Debug: jump to just before the next segment of `kind` (tunnel/bridge). */
+  warpToKind(kind: string, maxSegs = 8000): boolean {
+    for (let i = 0; i < maxSegs; i += 50) {
+      this.warp(50)
+      for (const s of this.segments) if (s.kind === kind && s.index > this.baseIndex + 40) {
+        this.position = (s.index - 30) * SEG_LEN
+        this.ensure()
+        return true
+      }
+    }
+    return false
+  }
+
   /** Visual steering angle: curve + lane change, in radians. */
   get steer(): number {
     const curve = this.base.curve

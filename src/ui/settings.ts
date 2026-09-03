@@ -1,19 +1,39 @@
 import type { Biome, TimePreset } from '../tokens'
+import type { Weather } from '../world/weather'
 
 export interface Settings {
-  time: TimePreset | 'auto'
+  time: TimePreset | 'auto' | 'cycle'
   biome: Biome | 'mixed'
+  weather: Weather
   speed: number
   seed: number
   crt: boolean
   ads: boolean
+  sound: boolean
 }
 
 const KEY = 'night-drive.settings'
 
-export const DEFAULTS: Settings = { time: 'night', biome: 'mixed', speed: 1, seed: 1234, crt: false, ads: true }
+export const DEFAULTS: Settings = {
+  time: 'night', biome: 'mixed', weather: 'clear', speed: 1, seed: 1234, crt: false, ads: true, sound: false,
+}
+
+/** Cycle: day 90s -> dusk 30s -> night 120s, from page load. */
+const CYCLE = [
+  ['day', 90], ['dusk', 30], ['night', 120],
+] as const
+const CYCLE_TOTAL = CYCLE.reduce((s, c) => s + c[1], 0)
+const cycleStart = Date.now()
 
 export function resolveTime(t: Settings['time']): TimePreset {
+  if (t === 'cycle') {
+    let e = ((Date.now() - cycleStart) / 1000) % CYCLE_TOTAL
+    for (const [p, d] of CYCLE) {
+      if (e < d) return p
+      e -= d
+    }
+    return 'night'
+  }
   if (t !== 'auto') return t
   const h = new Date().getHours()
   if (h >= 7 && h < 17) return 'day'
@@ -31,9 +51,13 @@ export function loadSettings(): Settings {
   }
   const q = new URLSearchParams(location.search)
   const time = q.get('time')
-  if (time && ['day', 'dusk', 'night', 'auto'].includes(time)) s.time = time as Settings['time']
+  if (time && ['day', 'dusk', 'night', 'auto', 'cycle'].includes(time)) s.time = time as Settings['time']
   const biome = q.get('scene')
   if (biome && ['countryside', 'city', 'highway', 'mixed'].includes(biome)) s.biome = biome as Settings['biome']
+  const weather = q.get('weather')
+  if (weather && ['clear', 'rain', 'fog'].includes(weather)) s.weather = weather as Weather
+  if (q.get('sound') === '1') s.sound = true
+  if (!['clear', 'rain', 'fog'].includes(s.weather)) s.weather = 'clear'
   const seed = q.get('seed')
   if (seed && !Number.isNaN(+seed)) s.seed = (+seed) >>> 0
   const speed = q.get('speed')
@@ -53,15 +77,18 @@ export function saveSettings(s: Settings): void {
   q.set('time', s.time)
   q.set('scene', s.biome)
   q.set('seed', String(s.seed))
+  if (s.weather !== 'clear') q.set('weather', s.weather)
   if (s.speed !== 1) q.set('speed', s.speed.toFixed(2))
   if (s.crt) q.set('crt', '1')
   if (!s.ads) q.set('ads', '0')
+  if (s.sound) q.set('sound', '1')
   history.replaceState(null, '', `?${q.toString()}`)
 }
 
 const LABELS = {
-  time: { auto: '자동', day: '낮', dusk: '노을', night: '밤' },
+  time: { auto: '자동', cycle: '순환', day: '낮', dusk: '노을', night: '밤' },
   biome: { mixed: '혼합', countryside: '시골', city: '도시', highway: '고속도로' },
+  weather: { clear: '맑음', rain: '비', fog: '안개' },
 }
 
 /**
@@ -84,7 +111,7 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     onChange({ ...s }, rebuild)
   }
 
-  const segmented = <K extends 'time' | 'biome'>(key: K, title: string, rebuild: boolean) => {
+  const segmented = <K extends 'time' | 'biome' | 'weather'>(key: K, title: string, rebuild: boolean) => {
     const wrap = document.createElement('div')
     wrap.className = 'ui-row'
     const h = document.createElement('div')
@@ -115,6 +142,7 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
 
   segmented('time', '시간', false)
   segmented('biome', '지역', true)
+  segmented('weather', '날씨', false)
 
   // speed
   {
@@ -170,7 +198,7 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     panel.appendChild(wrap)
   }
 
-  const check = (key: 'crt' | 'ads', label: string, rebuild: boolean) => {
+  const check = (key: 'crt' | 'ads' | 'sound', label: string, rebuild: boolean) => {
     const wrap = document.createElement('label')
     wrap.className = 'ui-check'
     const c = document.createElement('input')
@@ -183,6 +211,7 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     wrap.append(c, label)
     panel.appendChild(wrap)
   }
+  check('sound', '소리 (엔진·빗소리)', false)
   check('crt', 'CRT 스캔라인', false)
   check('ads', '광고 표시', true)
 
@@ -206,8 +235,9 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     idle = 0
     root.classList.remove('idle')
   }
-  document.addEventListener('mousemove', wake)
-  document.addEventListener('touchstart', wake, { passive: true })
+  for (const ev of ['mousemove', 'mousedown', 'pointerdown', 'click', 'keydown'] as const)
+    document.addEventListener(ev, wake, { capture: true })
+  document.addEventListener('touchstart', wake, { passive: true, capture: true })
   setInterval(() => {
     idle++
     if (idle > 5 && panel.hidden) root.classList.add('idle')

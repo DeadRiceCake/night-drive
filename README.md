@@ -20,12 +20,17 @@ npm run dev
 
 | 파라미터 | 값 |
 |---|---|
-| `time` | `day` `dusk` `night` `auto` |
+| `time` | `day` `dusk` `night` `auto`(현재 시각) `cycle`(4분 주기 순환) |
 | `scene` | `countryside` `city` `highway` `mixed` |
+| `weather` | `clear` `rain` `fog` |
 | `seed` | 정수 |
 | `speed` | 0.4 ~ 1.8 |
+| `sound` | `1` (엔진·노면·빗소리, 첫 클릭 후 재생) |
 | `crt` | `1` |
 | `ads` | `0` (광고 끄기) |
+| `debug` | `1` (FPS, 세그먼트, 바이옴 표시) |
+
+세로 화면(휴대폰)에서는 무대 전체가 정확히 90° 회전되어 가로로 표시됩니다.
 
 ## 광고
 

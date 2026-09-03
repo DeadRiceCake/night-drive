@@ -53,6 +53,8 @@ export interface Segment {
   props: Prop[]
   /** Overlay ad wall present on the right side of this segment. */
   wall: boolean
+  /** Tunnel segments draw a ceiling strip unless this is the exit segment. */
+  ceiling: boolean
   p1: Point
   p2: Point
   clip: number
@@ -66,7 +68,7 @@ export function makePoint(): Point {
 
 export function makeSegment(index: number, curve: number, y0: number, y: number, biome: string): Segment {
   return {
-    index, curve, y, y0, kind: 'road', biome, props: [], wall: false,
+    index, curve, y, y0, kind: 'road', biome, props: [], wall: false, ceiling: false,
     p1: makePoint(), p2: makePoint(), clip: 0, n: 0,
   }
 }
@@ -145,6 +147,16 @@ export class RoadBuilder {
   settle(n: number): this {
     if (Math.abs(this.y) < 1) return this.straight(n)
     return this.road(0, 0, n, 0, -this.y / SEG_LEN)
+  }
+
+  /** Mark a range of already-built segments (by index) as a tunnel or bridge. */
+  mark(from: number, to: number, kind: SegmentKind): void {
+    for (const s of this.segments) {
+      if (s.index >= from && s.index < to) {
+        s.kind = kind
+        s.ceiling = kind === 'tunnel' && s.index < to - 1
+      }
+    }
   }
 
   /** Easing helpers exposed for generators. */

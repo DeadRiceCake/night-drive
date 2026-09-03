@@ -344,6 +344,41 @@ export function wallPanel(): Sprite {
   return s
 }
 
+/**
+ * Tunnel portal: a rock/concrete face with a transparent arch. The arch
+ * height matches the tunnel ceiling ratio used by the renderer (0.7 * w).
+ */
+export function tunnelPortal(): Sprite {
+  // Very wide so the face hides everything beyond it while approaching;
+  // the arch is centred. worldW 17 -> arch (84px) is ~2.04 road half-widths.
+  const w = 700, h = 80
+  const s = blank(w, h)
+  const cx = w >> 1
+  // hillside silhouette above the concrete face
+  for (let x = 0; x < w; x++) {
+    const d = Math.abs(x - cx) / cx
+    const top = Math.round(d * d * 40)
+    fillRect(s, x, top, 1, h - top, S.c)
+    fillRect(s, x, top, 1, 2, S.d)
+  }
+  fillRect(s, cx - 90, 0, 180, 3, S.d)
+  fillRect(s, cx - 90, 3, 180, 1, S.e)
+  // texture bands
+  for (let y = 8; y < h; y += 6) fillRect(s, cx - 90, y, 180, 1, S.b)
+  // arch opening (transparent)
+  const hx0 = cx - 42, hx1 = cx + 42, top = 51
+  for (let y = top; y < h; y++) {
+    const r = Math.max(0, 6 - (y - top))
+    for (let x = hx0 + r; x < hx1 - r; x++) s.d[y * w + x] = 0
+  }
+  fillRect(s, hx0 - 2, top - 2, hx1 - hx0 + 4, 2, S.a)
+  fillRect(s, hx0 - 2, top, 2, h - top, S.a)
+  fillRect(s, hx1, top, 2, h - top, S.a)
+  // warning stripes at the base of the face
+  for (let x = cx - 90; x < cx + 90; x += 6) fillRect(s, x, h - 2, 3, 2, (x - cx) % 12 ? S.X : pal('tail', 1))
+  return s
+}
+
 /** Neon shop sign on a post (city). */
 export function neonSign(rng: Rng): Sprite {
   const neon = rng.chance(0.5) ? 'neonA' : 'neonB'

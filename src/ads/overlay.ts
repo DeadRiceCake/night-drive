@@ -39,8 +39,9 @@ export class AdOverlay {
     this.inner.textContent = ''
   }
 
-  /** Recompute the fixed slot for the current integer scale. */
-  layout(scale: number): void {
+  /** Recompute the fixed slot for the current integer scale. Rotated
+   *  (portrait) layouts never show network ads. */
+  layout(scale: number, rotated = false): void {
     this.scale = scale
     const w1 = Math.ceil(ADSENSE.width / scale) + 6
     const h1 = Math.ceil(ADSENSE.height / scale) + 6
@@ -48,7 +49,7 @@ export class AdOverlay {
     const top = MIRROR_REAR.y + MIRROR_REAR.h + 8
     const maxW = W - SAFE.left - SAFE.right - 40
     const maxH = DASH_TOP - top - 12
-    this.available = w1 <= maxW && h1 <= maxH
+    this.available = !rotated && w1 <= maxW && h1 <= maxH
     this.rect = { x: W - SAFE.right - w1 - 6, y: top, w: w1, h: h1 }
     this.el.style.width = `${ADSENSE.width}px`
     this.el.style.height = `${ADSENSE.height}px`

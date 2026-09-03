@@ -23,6 +23,7 @@ export class PropFactory {
   readonly wall: Sprite
   readonly bannerFrames: Sprite[]
   readonly bannerSlot: SP.Slot
+  readonly portal: Sprite
   private adCounter = 0
 
   constructor(
@@ -45,6 +46,11 @@ export class PropFactory {
     const b = SP.banner()
     this.bannerFrames = b.frames
     this.bannerSlot = b.slot
+    this.portal = SP.tunnelPortal()
+  }
+
+  tunnelPortal(): Prop {
+    return { sprite: this.portal, offset: 0, center: true, worldW: 17 }
   }
 
   tree(rng: Rng, side: -1 | 1, dist: number): Prop {

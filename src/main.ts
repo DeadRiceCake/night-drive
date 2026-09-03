@@ -1,18 +1,22 @@
 import './style.css'
 import { Framebuffer } from './core/framebuffer'
 import { buildLUT, pal } from './core/palette'
+import { drawText } from './core/font'
 import { startLoop } from './core/loop'
-import { renderRoad, applyLighting, makeStats, type View } from './road/render'
+import { renderRoad, applyLighting, makeStats, ditherSpan, type View } from './road/render'
 import { renderSky, initSky } from './world/sky'
 import { getBackground, renderBackground } from './world/background'
 import { World } from './world/world'
+import { Rain } from './world/weather'
 import { drawCockpit } from './cockpit/cockpit'
 import { AdRegistry } from './ads/registry'
 import { AdOverlay } from './ads/overlay'
+import { DriveAudio } from './audio'
 import { loadSettings, mountSettings, resolveTime, type Settings } from './ui/settings'
-import { W, H, DRAW_DIST, REAR_DRAW_DIST, DASH_TOP, CAM_H, FOV, MIRROR_REAR, MIRROR_SIDE, SEG_LEN, type TimePreset } from './tokens'
+import { W, H, DRAW_DIST, REAR_DRAW_DIST, DASH_TOP, CAM_H, FOV, MIRROR_REAR, MIRROR_SIDE, SEG_LEN, SPEED_CRUISE, type TimePreset } from './tokens'
 
 const HORIZON = 96
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1'
 
 // ------------------------------------------------------------------ DOM
 const stage = document.getElementById('stage') as HTMLDivElement
@@ -24,16 +28,21 @@ const image = ctx.createImageData(W, H)
 const pixels = new Uint32Array(image.data.buffer)
 
 let scale = 1
+let portrait = false
 let lastVw = 0, lastVh = 0
 function resize(): void {
   const vw = window.innerWidth, vh = window.innerHeight
   lastVw = vw
   lastVh = vh
-  scale = Math.max(1, Math.floor(Math.min(vw / W, vh / H)))
+  // Portrait phones: rotate the stage 90deg and fit the swapped box.
+  portrait = vh > vw * 1.15
+  const aw = portrait ? vh : vw, ah = portrait ? vw : vh
+  scale = Math.max(1, Math.floor(Math.min(aw / W, ah / H)))
   stage.style.width = `${W * scale}px`
   stage.style.height = `${H * scale}px`
+  stage.classList.toggle('portrait', portrait)
   document.documentElement.style.setProperty('--s', String(scale))
-  overlay.layout(scale)
+  overlay.layout(scale, portrait)
 }
 
 // ------------------------------------------------------------- state
@@ -45,6 +54,8 @@ const ads = new AdRegistry()
 ads.enabled = settings.ads
 const overlay = new AdOverlay(stage)
 overlay.enabled = settings.ads
+const rain = new Rain()
+const audio = new DriveAudio()
 
 const fb = new Framebuffer(W, H)
 const rearFb = new Framebuffer(MIRROR_REAR.w, MIRROR_REAR.h)
@@ -59,12 +70,21 @@ function makeWorld(): World {
   return new World({ seed: settings.seed, biome: settings.biome, speedMul: settings.speed }, ads)
 }
 
+function applyPreset(p: TimePreset): void {
+  if (p === preset) return
+  preset = p
+  lut = buildLUT(preset)
+}
+
 function applySettings(s: Settings, rebuild: boolean): void {
   settings = s
-  preset = resolveTime(s.time)
-  lut = buildLUT(preset)
+  applyPreset(resolveTime(s.time))
   ads.enabled = s.ads
   overlay.enabled = s.ads
+  rain.active = s.weather === 'rain'
+  audio.setEnabled(s.sound)
+  audio.setRain(s.weather === 'rain')
+  if (s.sound) audio.start()
   document.body.classList.toggle('crt', s.crt)
   if (rebuild) world = makeWorld()
   else world.cfg.speedMul = s.speed
@@ -72,6 +92,9 @@ function applySettings(s: Settings, rebuild: boolean): void {
 
 mountSettings(document.getElementById('ui')!, settings, applySettings)
 document.body.classList.toggle('crt', settings.crt)
+rain.active = settings.weather === 'rain'
+audio.enabled = settings.sound
+audio.setRain(settings.weather === 'rain')
 window.addEventListener('resize', resize)
 resize()
 ads.load('ads/manifest.json').then(() => {
@@ -79,16 +102,17 @@ ads.load('ads/manifest.json').then(() => {
   world = makeWorld()
 })
 
-// Time preset may change with the clock when set to auto
+// Audio needs a user gesture; start (or resume) on the first one.
+const gesture = () => {
+  if (settings.sound) audio.start()
+}
+document.addEventListener('pointerdown', gesture)
+document.addEventListener('keydown', gesture)
+
+// Clock-driven presets (auto / cycle)
 setInterval(() => {
-  if (settings.time === 'auto') {
-    const p = resolveTime('auto')
-    if (p !== preset) {
-      preset = p
-      lut = buildLUT(preset)
-    }
-  }
-}, 60_000)
+  if (settings.time === 'auto' || settings.time === 'cycle') applyPreset(resolveTime(settings.time))
+}, 1000)
 
 // -------------------------------------------------------------- render
 function fogFor(p: TimePreset): number {
@@ -96,6 +120,8 @@ function fogFor(p: TimePreset): number {
 }
 
 function view(dir: 1 | -1, horizon: number, bottom: number, drawDist: number, xShift = 0): View {
+  const foggy = settings.weather === 'fog'
+  const rainy = settings.weather === 'rain'
   return {
     position: world.position,
     playerX: world.playerX + xShift,
@@ -107,7 +133,8 @@ function view(dir: 1 | -1, horizon: number, bottom: number, drawDist: number, xS
     bottom,
     preset,
     fogColor: fogFor(preset),
-    fogStrength: preset === 'night' ? 1 : 0.8,
+    fogStrength: foggy ? 2.2 : rainy ? 1.3 : preset === 'night' ? 1 : 0.8,
+    fogStart: foggy ? 0.08 : rainy ? 0.3 : 0.45,
     tick: world.tick,
   }
 }
@@ -122,20 +149,36 @@ function renderMirror(target: Framebuffer, st: ReturnType<typeof makeStats>, xSh
   applyLighting(target, st, v, target.h)
 }
 
+let frameMs = 0
+let fps = 0
+let fpsAcc = 0, fpsCount = 0, fpsLast = performance.now()
+
 function render(): void {
+  const t0 = performance.now()
   // Some embeds never fire `resize`; poll cheaply.
   if (window.innerWidth !== lastVw || window.innerHeight !== lastVh) resize()
   const lit = preset !== 'day'
+  const foggy = settings.weather === 'fog'
   // sky + background
   renderSky(fb, preset, HORIZON, world.bgOffset, world.tick)
   const bg = getBackground(world.biome, settings.seed, lit)
   renderBackground(fb, bg, HORIZON, world.bgOffset)
+  if (foggy || settings.weather === 'rain') {
+    // Haze over the distant layers: heavier near the horizon.
+    const fog = fogFor(preset)
+    const depth = foggy ? 44 : 20
+    for (let y = HORIZON - depth; y < HORIZON; y++) {
+      const lvl = Math.round(((y - (HORIZON - depth)) / depth) * (foggy ? 16 : 10))
+      ditherSpan(fb, 0, W - 1, y, fog, lvl)
+    }
+  }
   fb.fillRect(0, HORIZON, W, DASH_TOP + 4 - HORIZON, fogFor(preset))
   // road
   const v = view(1, HORIZON, DASH_TOP + 4, DRAW_DIST)
   renderRoad(fb, world, v, stats)
   applyLighting(fb, stats, v, DASH_TOP + 4)
   overlay.draw(fb, world.tick)
+  rain.draw(fb, preset)
   // mirrors
   renderMirror(rearFb, rearStats, 0)
   renderMirror(sideFb, sideStats, 0.9)
@@ -143,8 +186,8 @@ function render(): void {
   drawCockpit(
     fb,
     {
-      speedKmh: (world.speed / 7200) * 96,
-      rpm: 0.28 + (world.speed / 7200) * 0.22 + Math.sin(world.tick / 7) * 0.01,
+      speedKmh: (world.speed / SPEED_CRUISE) * 96,
+      rpm: 0.28 + (world.speed / SPEED_CRUISE) * 0.22 + Math.sin(world.tick / 7) * 0.01,
       steer: world.steer,
       signal: world.signal,
       tick: world.tick,
@@ -152,13 +195,29 @@ function render(): void {
     },
     { rear: rearFb, side: sideFb },
   )
+  if (DEBUG) {
+    drawText(fb, 40, 6, `${fps} FPS ${frameMs.toFixed(1)}MS`, pal('ui', 4))
+    drawText(fb, 40, 13, `SEG ${world.baseIndex} ${world.biome.toUpperCase()} ${world.base.kind.toUpperCase()}`, pal('ui', 3))
+  }
   fb.present(pixels, lut)
   ctx.putImageData(image, 0, 0)
+  const t1 = performance.now()
+  frameMs = frameMs * 0.9 + (t1 - t0) * 0.1
+  fpsAcc += t1 - fpsLast
+  fpsLast = t1
+  fpsCount++
+  if (fpsAcc >= 1000) {
+    fps = Math.round((fpsCount * 1000) / fpsAcc)
+    fpsAcc = 0
+    fpsCount = 0
+  }
 }
 
 function update(dt: number): void {
   world.update(dt)
   overlay.update(world.onWall)
+  rain.update()
+  if (world.tick % 10 === 0) audio.setSpeed(world.speed / SPEED_CRUISE)
 }
 
 startLoop(update, render)
@@ -171,17 +230,27 @@ function propAt(px: number, py: number): { url: string } | null {
     if (!seg) break
     for (const p of seg.props) {
       const r = p.adRect
-      const url = (p as { adUrl?: string }).adUrl
-      if (!r || !url) continue
-      if (px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h && py < seg.clip) return { url }
+      if (!r || !p.adUrl) continue
+      if (px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h && py < seg.clip) return { url: p.adUrl }
     }
   }
   return null
 }
 
+/** Client coords -> backbuffer pixel, accounting for the portrait rotation. */
 function toBuffer(e: MouseEvent): [number, number] {
-  const rect = canvas.getBoundingClientRect()
-  return [Math.floor(((e.clientX - rect.left) / rect.width) * W), Math.floor(((e.clientY - rect.top) / rect.height) * H)]
+  const rect = stage.getBoundingClientRect()
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2
+  const sx = e.clientX - cx, sy = e.clientY - cy
+  let u: number, vv: number
+  if (portrait) {
+    u = sy + (W * scale) / 2
+    vv = -sx + (H * scale) / 2
+  } else {
+    u = sx + (W * scale) / 2
+    vv = sy + (H * scale) / 2
+  }
+  return [Math.floor(u / scale), Math.floor(vv / scale)]
 }
 
 canvas.addEventListener('mousemove', (e) => {
@@ -198,8 +267,12 @@ canvas.addEventListener('click', (e) => {
 ;(window as unknown as { nd: unknown }).nd = {
   get world() { return world },
   get preset() { return preset },
+  get settings() { return settings },
   overlay,
+  rain,
+  audio,
   segLen: SEG_LEN,
   warp: (n: number) => world.warp(n),
   warpToWall: () => world.warpToWall(),
+  warpTo: (kind: string) => world.warpToKind(kind),
 }

@@ -30,6 +30,10 @@ body {
   transform: translate(-50%, -50%);
   overflow: hidden;
 }
+/* Portrait phones: rotate the whole stage by exactly 90deg (grid-safe). */
+#stage.portrait {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
 
 #view {
   display: block;
@@ -117,7 +121,9 @@ body.crt #stage::after {
   position: absolute;
   top: calc(var(--s) * 11px);
   left: 0;
-  width: calc(var(--s) * 96px);
+  width: calc(var(--s) * 100px);
+  max-height: calc(var(--s) * 160px);
+  overflow-y: auto;
   background: var(--ui-0);
   border: calc(var(--s) * 1px) solid var(--ui-3);
   box-shadow: calc(var(--s) * 2px) calc(var(--s) * 2px) 0 var(--ui-2);
