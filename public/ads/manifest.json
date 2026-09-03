@@ -1,9 +1,9 @@
 {
   "ads": [
-    { "id": "sample-coffee", "kind": "image", "src": "ads/sample-coffee.svg", "url": "https://example.com/coffee", "weight": 2 },
-    { "id": "sample-radio", "kind": "image", "src": "ads/sample-radio.svg", "url": "https://example.com/radio", "weight": 2 },
-    { "id": "text-drive", "kind": "text", "text": "NIGHT\nDRIVE", "bg": "neonA", "fg": "mono", "url": "https://example.com/drive", "weight": 1 },
-    { "id": "text-motel", "kind": "text", "text": "MOTEL\n24H OPEN", "bg": "lightWarm", "fg": "mono", "url": "https://example.com/motel", "weight": 1 },
-    { "id": "text-your-ad", "kind": "text", "text": "YOUR AD\nHERE", "bg": "carC", "fg": "mono", "url": "https://example.com/advertise", "weight": 1 }
+    { "id": "youtube", "kind": "text", "text": "YOUTUBE\nWATCH NOW", "bg": "tail", "fg": "mono", "url": "https://www.youtube.com", "weight": 1 },
+    { "id": "google", "kind": "text", "text": "GOOGLE\nSEARCH", "bg": "carB", "fg": "mono", "url": "https://www.google.com", "weight": 1 },
+    { "id": "tesla", "kind": "text", "text": "TESLA\nDRIVE ELECTRIC", "bg": "carC", "fg": "mono", "url": "https://www.tesla.com", "weight": 1 },
+    { "id": "nvidia", "kind": "text", "text": "NVIDIA\nGEFORCE", "bg": "veg", "fg": "mono", "url": "https://www.nvidia.com", "weight": 1 },
+    { "id": "apple", "kind": "text", "text": "APPLE\nTHINK DIFFERENT", "bg": "struct", "fg": "mono", "url": "https://www.apple.com", "weight": 1 }
   ]
 }

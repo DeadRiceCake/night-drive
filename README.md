@@ -43,7 +43,7 @@ npm run dev
 { "id": "motel",  "kind": "text",  "text": "MOTEL\n24H", "bg": "lightWarm", "fg": "mono", "url": "https://...", "weight": 1 }
 ```
 
-전광판·현수막·트럭 뒷면에 무작위 배치되고, 클릭하면 `url`이 새 탭으로 열립니다.
+전광판·현수막·트럭 뒷면에 무작위 배치되고, 클릭하면 `url`이 새 탭으로 열립니다. 텍스트 광고의 `bg`/`fg`는 팔레트 램프 이름(`tail`, `carB`, `carC`, `veg`, `struct`, `lightWarm`, `neonA`, `mono` 등)입니다. 기본 매니페스트에는 유튜브·구글·테슬라·엔비디아·애플로 연결되는 텍스트 광고 5개가 들어 있습니다.
 
 ### 네트워크 광고 (AdSense)
 
