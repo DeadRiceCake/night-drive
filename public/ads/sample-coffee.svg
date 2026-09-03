@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120">
+  <rect width="240" height="120" fill="#f4e3c1"/>
+  <rect x="0" y="0" width="240" height="14" fill="#7a3b1e"/>
+  <rect x="0" y="106" width="240" height="14" fill="#7a3b1e"/>
+  <rect x="30" y="34" width="60" height="50" rx="6" fill="#ffffff" stroke="#7a3b1e" stroke-width="6"/>
+  <path d="M90 46 h14 a12 12 0 0 1 0 24 h-14" fill="none" stroke="#7a3b1e" stroke-width="6"/>
+  <rect x="24" y="86" width="72" height="6" fill="#7a3b1e"/>
+  <path d="M50 26 q4 -6 0 -12 M62 26 q4 -6 0 -12" fill="none" stroke="#c0623a" stroke-width="4"/>
+  <text x="120" y="60" font-family="Arial Black, Arial, sans-serif" font-size="30" font-weight="900" fill="#7a3b1e">COFFEE</text>
+  <text x="120" y="88" font-family="Arial, sans-serif" font-size="18" fill="#c0623a">NEXT EXIT 2KM</text>
+</svg>
