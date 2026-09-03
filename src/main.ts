@@ -271,6 +271,7 @@ canvas.addEventListener('click', (e) => {
   overlay,
   rain,
   audio,
+  ads,
   segLen: SEG_LEN,
   warp: (n: number) => world.warp(n),
   warpToWall: () => world.warpToWall(),

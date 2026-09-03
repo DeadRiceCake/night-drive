@@ -1,9 +1,9 @@
 {
   "ads": [
-    { "id": "youtube", "kind": "text", "text": "YOUTUBE\nWATCH NOW", "bg": "tail", "fg": "mono", "url": "https://www.youtube.com", "weight": 1 },
-    { "id": "google", "kind": "text", "text": "GOOGLE\nSEARCH", "bg": "carB", "fg": "mono", "url": "https://www.google.com", "weight": 1 },
-    { "id": "tesla", "kind": "text", "text": "TESLA\nDRIVE ELECTRIC", "bg": "carC", "fg": "mono", "url": "https://www.tesla.com", "weight": 1 },
-    { "id": "nvidia", "kind": "text", "text": "NVIDIA\nGEFORCE", "bg": "veg", "fg": "mono", "url": "https://www.nvidia.com", "weight": 1 },
-    { "id": "apple", "kind": "text", "text": "APPLE\nTHINK DIFFERENT", "bg": "struct", "fg": "mono", "url": "https://www.apple.com", "weight": 1 }
+    { "id": "youtube", "kind": "image", "src": "ads/youtube.png", "url": "https://www.youtube.com", "weight": 1 },
+    { "id": "google", "kind": "image", "src": "ads/google.png", "url": "https://www.google.com", "weight": 1 },
+    { "id": "tesla", "kind": "image", "src": "ads/tesla.png", "url": "https://www.tesla.com", "weight": 1 },
+    { "id": "nvidia", "kind": "image", "src": "ads/nvidia.png", "url": "https://www.nvidia.com", "weight": 1 },
+    { "id": "apple", "kind": "image", "src": "ads/apple.png", "url": "https://www.apple.com", "weight": 1 }
   ]
 }
