@@ -1,27 +1,26 @@
-import type { Biome, TimePreset } from '../tokens'
-import type { Weather } from '../world/weather'
+import type { TimePreset } from '../tokens'
+import { DISTRICTS, type DistrictId } from '../city/map'
+
+export type Weather = 'clear' | 'rain' | 'fog'
 
 export interface Settings {
   time: TimePreset | 'auto' | 'cycle'
-  biome: Biome | 'mixed'
   weather: Weather
   speed: number
   seed: number
-  crt: boolean
+  fx: boolean
   ads: boolean
   sound: boolean
+  at: DistrictId | ''
 }
 
-const KEY = 'night-drive.settings'
+const KEY = 'night-drive.v2.settings'
 
 export const DEFAULTS: Settings = {
-  time: 'night', biome: 'mixed', weather: 'clear', speed: 1, seed: 1234, crt: false, ads: true, sound: false,
+  time: 'night', weather: 'clear', speed: 1, seed: 2077, fx: true, ads: true, sound: false, at: '',
 }
 
-/** Cycle: day 90s -> dusk 30s -> night 120s, from page load. */
-const CYCLE = [
-  ['day', 90], ['dusk', 30], ['night', 120],
-] as const
+const CYCLE = [['day', 90], ['dusk', 30], ['night', 150]] as const
 const CYCLE_TOTAL = CYCLE.reduce((s, c) => s + c[1], 0)
 const cycleStart = Date.now()
 
@@ -49,69 +48,75 @@ export function loadSettings(): Settings {
   } catch {
     /* ignore */
   }
+  s.at = ''
   const q = new URLSearchParams(location.search)
   const time = q.get('time')
   if (time && ['day', 'dusk', 'night', 'auto', 'cycle'].includes(time)) s.time = time as Settings['time']
-  const biome = q.get('scene')
-  if (biome && ['countryside', 'city', 'highway', 'mixed'].includes(biome)) s.biome = biome as Settings['biome']
   const weather = q.get('weather')
   if (weather && ['clear', 'rain', 'fog'].includes(weather)) s.weather = weather as Weather
-  if (q.get('sound') === '1') s.sound = true
   if (!['clear', 'rain', 'fog'].includes(s.weather)) s.weather = 'clear'
   const seed = q.get('seed')
   if (seed && !Number.isNaN(+seed)) s.seed = (+seed) >>> 0
   const speed = q.get('speed')
-  if (speed && !Number.isNaN(+speed)) s.speed = Math.max(0.4, Math.min(1.8, +speed))
-  if (q.get('crt') === '1') s.crt = true
+  if (speed && !Number.isNaN(+speed)) s.speed = Math.max(0.3, Math.min(2, +speed))
+  if (q.get('fx') === '0') s.fx = false
   if (q.get('ads') === '0') s.ads = false
+  if (q.get('sound') === '1') s.sound = true
+  const at = q.get('at')
+  if (at && DISTRICTS.some((d) => d.id === at)) s.at = at as DistrictId
   return s
 }
 
 export function saveSettings(s: Settings): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s))
+    localStorage.setItem(KEY, JSON.stringify({ ...s, at: '' }))
   } catch {
     /* ignore */
   }
   const q = new URLSearchParams()
   q.set('time', s.time)
-  q.set('scene', s.biome)
   q.set('seed', String(s.seed))
   if (s.weather !== 'clear') q.set('weather', s.weather)
   if (s.speed !== 1) q.set('speed', s.speed.toFixed(2))
-  if (s.crt) q.set('crt', '1')
+  if (!s.fx) q.set('fx', '0')
   if (!s.ads) q.set('ads', '0')
   if (s.sound) q.set('sound', '1')
+  if (s.at) q.set('at', s.at)
   history.replaceState(null, '', `?${q.toString()}`)
 }
 
 const LABELS = {
   time: { auto: '자동', cycle: '순환', day: '낮', dusk: '노을', night: '밤' },
-  biome: { mixed: '혼합', countryside: '시골', city: '도시', highway: '고속도로' },
-  weather: { clear: '맑음', rain: '비', fog: '안개' },
+  weather: { clear: '맑음', rain: '비', fog: '스모그' },
 }
 
-/**
- * Builds the settings panel DOM. `onChange` receives the new settings and a
- * flag telling whether the world must be rebuilt (seed/biome).
- */
-export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s: Settings, rebuild: boolean) => void): void {
+export interface SettingsHooks {
+  onChange: (s: Settings, rebuild: boolean) => void
+  onWarp: (id: DistrictId) => void
+}
+
+export function mountSettings(root: HTMLElement, initial: Settings, hooks: SettingsHooks): { setOpen: (o: boolean) => void } {
   const s = { ...initial }
   const toggle = document.createElement('button')
   toggle.className = 'ui-toggle'
   toggle.setAttribute('aria-label', '설정')
-  toggle.textContent = '≡'
+  toggle.innerHTML = '<span></span><span></span><span></span>'
   const panel = document.createElement('div')
   panel.className = 'ui-panel'
   panel.hidden = true
   root.append(toggle, panel)
 
+  const head = document.createElement('div')
+  head.className = 'ui-head'
+  head.innerHTML = '<b>NIGHT DRIVE</b><i>NIGHT CITY // 2077</i>'
+  panel.appendChild(head)
+
   const emit = (rebuild: boolean) => {
     saveSettings(s)
-    onChange({ ...s }, rebuild)
+    hooks.onChange({ ...s }, rebuild)
   }
 
-  const segmented = <K extends 'time' | 'biome' | 'weather'>(key: K, title: string, rebuild: boolean) => {
+  const segmented = <K extends 'time' | 'weather'>(key: K, title: string) => {
     const wrap = document.createElement('div')
     wrap.className = 'ui-row'
     const h = document.createElement('div')
@@ -129,7 +134,7 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
       b.onclick = () => {
         ;(s as Record<string, unknown>)[key] = v
         sync()
-        emit(rebuild)
+        emit(false)
       }
       buttons.push(b)
       group.appendChild(b)
@@ -139,10 +144,37 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     wrap.append(h, group)
     panel.appendChild(wrap)
   }
+  segmented('time', '시간')
+  segmented('weather', '날씨')
 
-  segmented('time', '시간', false)
-  segmented('biome', '지역', true)
-  segmented('weather', '날씨', false)
+  // districts
+  {
+    const wrap = document.createElement('div')
+    wrap.className = 'ui-row'
+    const h = document.createElement('div')
+    h.className = 'ui-label'
+    h.textContent = '구역으로 이동'
+    const grid = document.createElement('div')
+    grid.className = 'ui-grid'
+    for (const d of DISTRICTS) {
+      const b = document.createElement('button')
+      b.textContent = d.name
+      b.dataset.region = d.region
+      b.onclick = () => {
+        s.at = d.id
+        saveSettings(s)
+        hooks.onWarp(d.id)
+      }
+      grid.appendChild(b)
+    }
+    const bl = document.createElement('button')
+    bl.textContent = 'Badlands'
+    bl.dataset.region = 'badlands'
+    bl.onclick = () => hooks.onWarp('badlands')
+    grid.appendChild(bl)
+    wrap.append(h, grid)
+    panel.appendChild(wrap)
+  }
 
   // speed
   {
@@ -155,8 +187,8 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     h.append('속도 ', val)
     const r = document.createElement('input')
     r.type = 'range'
-    r.min = '0.4'
-    r.max = '1.8'
+    r.min = '0.3'
+    r.max = '2'
     r.step = '0.05'
     r.value = String(s.speed)
     const upd = () => (val.textContent = `${Math.round(s.speed * 100)}%`)
@@ -169,7 +201,6 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     wrap.append(h, r)
     panel.appendChild(wrap)
   }
-
   // seed
   {
     const wrap = document.createElement('div')
@@ -197,8 +228,7 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     wrap.append(h, line)
     panel.appendChild(wrap)
   }
-
-  const check = (key: 'crt' | 'ads' | 'sound', label: string, rebuild: boolean) => {
+  const check = (key: 'fx' | 'ads' | 'sound', label: string, rebuild: boolean) => {
     const wrap = document.createElement('label')
     wrap.className = 'ui-check'
     const c = document.createElement('input')
@@ -211,13 +241,13 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
     wrap.append(c, label)
     panel.appendChild(wrap)
   }
-  check('sound', '소리 (엔진·빗소리)', false)
-  check('crt', 'CRT 스캔라인', false)
-  check('ads', '광고 표시', true)
+  check('sound', '소리 (엔진·비)', false)
+  check('fx', '블룸 · 필름 효과', false)
+  check('ads', '광고 표시', false)
 
   const foot = document.createElement('div')
   foot.className = 'ui-foot'
-  foot.textContent = 'ESC 닫기 · 링크를 공유하면 같은 풍경이 나옵니다'
+  foot.textContent = 'ESC 닫기 · 링크를 공유하면 같은 도시가 나옵니다'
   panel.appendChild(foot)
 
   const setOpen = (open: boolean) => {
@@ -228,18 +258,16 @@ export function mountSettings(root: HTMLElement, initial: Settings, onChange: (s
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') setOpen(false)
   })
-
-  // Hide the toggle while idle
   let idle = 0
   const wake = () => {
     idle = 0
     root.classList.remove('idle')
   }
-  for (const ev of ['mousemove', 'mousedown', 'pointerdown', 'click', 'keydown'] as const)
-    document.addEventListener(ev, wake, { capture: true })
+  for (const ev of ['mousemove', 'mousedown', 'pointerdown', 'click', 'keydown'] as const) document.addEventListener(ev, wake, { capture: true })
   document.addEventListener('touchstart', wake, { passive: true, capture: true })
   setInterval(() => {
     idle++
     if (idle > 5 && panel.hidden) root.classList.add('idle')
   }, 1000)
+  return { setOpen }
 }
