@@ -136,7 +136,7 @@ void main() {
   float neon = vParams.w;
   float sh = hash12(vec2(seed * 0.37, seed * 1.13));
   // tint: instance colour scaled so a mid-grey atlas lands on the district palette
-  vec3 tint = vColor * 2.6;
+  vec3 tint = vColor * 2.6 * (1.0 + 1.3 * uSunK); // daylight: palettes are night-dark, lift them toward real concrete albedo
   vec3 N = normalize(vNormal);
   vec3 T = normalize(vTan);
   vec3 B = normalize(vBit);
@@ -188,7 +188,13 @@ void main() {
     alb = tileTex(uAlbedo, tile, uvT, gx, gy);
     det = tileTex(uDetail, tile, uvT, gx, gy);
   }
-  float mask = alb.a;
+  // window LOD: cells per pixel. Mid range sharpens the mip-blurred mask back into rectangles,
+  // far range fades per-cell sparkle into the building's average lit colour (no sub-pixel noise).
+  vec2 cpp = vec2(length(dFdx(vFace / cell)), length(dFdy(vFace / cell)));
+  float cellPx = max(cpp.x, cpp.y);
+  float lodMid = smoothstep(0.02, 0.12, cellPx);
+  float lodFar = smoothstep(0.18, 0.5, cellPx);
+  float mask = mix(alb.a, smoothstep(0.3, 0.7, alb.a), lodMid);
   float rough = det.b;
   float ao = det.a;
   vec3 albedo = alb.rgb * tint;
@@ -282,6 +288,11 @@ void main() {
     vec3 glassCol = mix(albedo * 0.6, uSkyRef * 0.5, 0.35 * glassy + 0.15) * (0.25 + 0.75 * uSunK);
     col = mix(col, glassCol + spec * 0.8, inWin * (1.0 - on) * (0.5 + 0.5 * glassy));
     col = mix(col, litCol + spec * 0.3, inWin * on);
+    // far LOD: average of lit and dark windows
+    vec3 avgLit = mix(cool, warm, bWarm) * 0.55 * (0.15 + 0.7 * uLights);
+    float avgOn = clamp(lit * 0.9, 0.0, 0.85) * (isUnfinished ? 0.15 : 1.0) * (isArasaka ? 0.0 : 1.0);
+    vec3 farCol = mix(albedo * (uAmbient * 0.8 + uSunColor * uSunK * 0.6), avgLit, avgOn * 0.45);
+    col = mix(col, farCol, lodFar * 0.85);
     // shop windows: bright, warm or neon-tinted
     if (shopMask > 0.5) {
       float shopOn = step(0.35, hash12(vec2(floor(vFace.x / 8.0), seed)));

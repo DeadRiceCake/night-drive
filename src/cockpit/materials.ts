@@ -95,8 +95,8 @@ export function buildCockpitMaterials(): CockpitMaterials {
   // pebble grain: many soft circles
   for (let i = 0; i < 9000; i++) {
     const x = r() * S, y = r() * S, rad = 1.5 + r() * 3
-    const v = 0.5 + r() * 0.5
-    la.fillStyle = `rgba(${40 * v},${40 * v},${46 * v},0.35)`
+    const v = 0.35 + r() * 0.75
+    la.fillStyle = `rgba(${44 * v},${44 * v},${50 * v},0.6)`
     la.beginPath(); la.arc(x, y, rad, 0, 6.3); la.fill()
     lh.fillStyle = `rgba(${255 * (0.45 + r() * 0.35)},0,0,0.5)`.replace(/rgba\((\d+\.?\d*),0,0/, (_, g) => `rgba(${g},${g},${g}`)
     lh.beginPath(); lh.arc(x, y, rad, 0, 6.3); lh.fill()
@@ -111,10 +111,10 @@ export function buildCockpitMaterials(): CockpitMaterials {
     for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 40; y += (r() - 0.5) * 40; la.lineTo(x, y); lh.lineTo(x, y) }
     la.stroke(); lh.stroke()
   }
-  const leatherMap = tex(la, true, 6)
-  const leatherNormal = normalFrom(lh, 1.4)
-  leatherNormal.repeat.set(6, 6)
-  const leather = new MeshStandardMaterial({ map: leatherMap, normalMap: leatherNormal, normalScale: new Vector2(0.6, 0.6), roughness: 0.72, metalness: 0.05, fog: false })
+  const leatherMap = tex(la, true, 4)
+  const leatherNormal = normalFrom(lh, 2.2)
+  leatherNormal.repeat.set(4, 4)
+  const leather = new MeshStandardMaterial({ map: leatherMap, normalMap: leatherNormal, normalScale: new Vector2(1.0, 1.0), roughness: 0.66, metalness: 0.05, fog: false })
 
   // leather with a stitched seam running horizontally through the middle (for the dash top / wheel)
   const sa = ctx2d(S, S), shh = ctx2d(S, S)

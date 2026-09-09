@@ -7,6 +7,7 @@
  */
 import { Color, Group, Object3D, PointLight, SpotLight, Vector3 } from 'three'
 import { ATMOS, type TimePreset } from '../tokens'
+import { Q } from '../quality'
 
 export interface LampEntry {
   s: number
@@ -24,9 +25,8 @@ export interface NeonEntry {
   size: number
 }
 
-const IS_MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent)
-export const N_LAMPS = IS_MOBILE ? 6 : 10
-export const N_NEON = IS_MOBILE ? 3 : 6
+export const N_LAMPS = Q.lamps
+export const N_NEON = Q.neon
 
 export class LightPool {
   group = new Group()

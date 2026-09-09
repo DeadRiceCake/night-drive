@@ -17,14 +17,15 @@ page.on('pageerror', (e) => console.log('[pageerror]', e.message))
 page.on('response', (r) => { if (r.status() >= 400) console.log('[http]', r.status(), r.url()) })
 await page.goto(url, { waitUntil: 'load' })
 await page.waitForTimeout(9000)
-await page.screenshot({ path: join(out, 'start.png') })
+await page.screenshot({ path: join(out, 'start.png'), timeout: 180000 })
 const list = warps ? warps.split(',') : []
+let k = 0
 for (const w of list) {
   let name = w
-  if (w.startsWith('click:')) { await page.click(w.slice(6)); name = 'click' }
-  else if (w.startsWith('eval:')) { await page.evaluate(w.slice(5)); name = 'eval' }
+  if (w.startsWith('click:')) { await page.click(w.slice(6)); name = `click${k++}` }
+  else if (w.startsWith('eval:')) { await page.evaluate(w.slice(5)); name = `eval${k++}` }
   else await page.evaluate((k) => window.nd?.warpTo?.(k), w)
   await page.waitForTimeout(1200)
-  await page.screenshot({ path: join(out, `${name}.png`) })
+  await page.screenshot({ path: join(out, `${name}.png`), timeout: 180000 })
 }
 await browser.close()

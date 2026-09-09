@@ -12,6 +12,7 @@ import {
   WebGLRenderTarget, type Scene, type Texture, type WebGLRenderer,
 } from 'three'
 import { buildCockpitMaterials, type CockpitMaterials } from './materials'
+import { Q } from '../quality'
 
 export interface ClusterState {
   kmh: number
@@ -56,6 +57,20 @@ export class Cockpit {
     crest.position.set(0, -0.37, -1.02)
     crest.rotation.x = -0.12
     g.add(crest)
+    // driver-side brow: the cowl rises over the binnacle
+    const brow = new Mesh(new BoxGeometry(0.82, 0.05, 0.46), M.leather)
+    brow.position.set(-0.37, -0.365, -1.0)
+    brow.rotation.x = -0.14
+    g.add(brow)
+    const browEdge = new Mesh(new BoxGeometry(0.84, 0.012, 0.03), M.leatherStitch)
+    browEdge.position.set(-0.37, -0.35, -0.78)
+    g.add(browEdge)
+    // passenger side: airbag seam + glovebox line as shallow dark grooves in the cowl top
+    for (const [w, d, x, z] of [[0.62, 0.006, 0.82, -0.86], [0.62, 0.006, 0.82, -1.18], [0.006, 0.33, 0.51, -1.02], [0.006, 0.33, 1.13, -1.02]] as const) {
+      const groove = new Mesh(new BoxGeometry(w, 0.004, d), new MeshStandardMaterial({ color: 0x050506, roughness: 1, fog: false }))
+      groove.position.set(x, -0.383, z)
+      g.add(groove)
+    }
     // lower dash / knee panel
     const knee = new Mesh(new BoxGeometry(2.5, 0.42, 0.5), M.plastic)
     knee.position.set(0, -0.8, -0.72)
@@ -248,7 +263,7 @@ export class Cockpit {
     }
 
     // ------------------------------------------------------ mirrors
-    this.rearRT = new WebGLRenderTarget(768, 240)
+    this.rearRT = new WebGLRenderTarget(Q.mirrorW, Math.round(Q.mirrorW * 240 / 768))
     this.rearRT.texture.minFilter = LinearFilter
     this.rearRT.texture.colorSpace = SRGBColorSpace
     this.rearCam = new PerspectiveCamera(58, 768 / 240, 0.5, 2500)

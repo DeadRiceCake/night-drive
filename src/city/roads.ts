@@ -72,6 +72,7 @@ void main() {
   float s = vUv.y; // metres along
   float across = x * vHalf;
   bool pave = vKind > 2.5;
+  float paveF = pave ? 1.0 : 0.0;
   // ------------------------------------------------ textures (left half asphalt, right half pavement)
   vec2 uvC = pave ? vec2(across / 4.0, s / 4.0) : vec2(across / 6.0, s / 6.0);
   vec2 gx = dFdx(uvC) * vec2(0.5, 1.0), gy = dFdy(uvC) * vec2(0.5, 1.0);
@@ -82,7 +83,7 @@ void main() {
   if (vKind > 1.5 && vKind < 2.5) base = mix(base, vec3(0.32, 0.27, 0.2), 0.7); // dirt / hill road
   // tyre wear: slightly lighter, smoother bands where wheels run
   float lane = abs(fract(abs(across) / (vHalf * 0.5) + 0.5) - 0.5) * 2.0;
-  float wear = (1.0 - pave) * smoothstep(0.55, 0.85, lane) * 0.4;
+  float wear = (1.0 - paveF) * smoothstep(0.55, 0.85, lane) * 0.4;
   base *= 1.0 + 0.25 * wear;
   float rough = det.b - 0.25 * wear;
   // ------------------------------------------------ lane marks
@@ -96,7 +97,7 @@ void main() {
   float zebra = step(0.5, vCross) * step(vCross, 3.5) * step(0.5, fract(across / 0.9)) * step(ax, 0.94);
   float stopLine = step(3.9, vCross) * step(vCross, 4.4) * step(0.02, ax) * step(ax, 0.94);
   marks = max(marks, max(zebra * 0.85, stopLine * 0.9));
-  marks *= 1.0 - pave;
+  marks *= 1.0 - paveF;
   // paint is worn: break it up with the texture noise
   marks *= 0.55 + 0.6 * smoothstep(0.35, 0.7, vnoise(vec2(across * 3.0, s * 1.5)));
   base = mix(base, lineCol * 0.9, marks);
@@ -108,7 +109,7 @@ void main() {
   vec2 nm = det.rg * 2.0 - 1.0;
   float nz = sqrt(max(0.0, 1.0 - dot(nm, nm)));
   // puddles flatten the normal
-  float puddle = smoothstep(0.55, 0.8, vnoise(vec2(across * 0.35 + 7.0, s * 0.08))) * (1.0 - pave) * (vKind > 1.5 ? 0.25 : 1.0);
+  float puddle = smoothstep(0.55, 0.8, vnoise(vec2(across * 0.35 + 7.0, s * 0.08))) * (1.0 - paveF) * (vKind > 1.5 ? 0.25 : 1.0);
   float wet = uWet * (0.35 + 0.65 * puddle);
   vec3 N = normalize(mix(T * nm.x + Bt * nm.y + N0 * nz, N0, wet * 0.85));
   rough = mix(rough, 0.05, wet);
@@ -156,7 +157,7 @@ void main() {
   float streakX = exp(-pow((x - side * 0.85) * 3.0, 2.0));
   float streakS = exp(-pow(min(ls, 1.0 - ls) * period / 14.0, 2.0));
   vec3 lampCol = mix(vec3(1.0, 0.62, 0.25), vec3(0.85, 0.9, 1.0), vLamp);
-  col += lampCol * streakX * streakS * wet * uLights * 0.45 * (0.4 + graze) * (1.0 - pave);
+  col += lampCol * streakX * streakS * wet * uLights * 0.45 * (0.4 + graze) * (1.0 - paveF);
   // neon spill: general magenta/cyan sheen near the city (subtle)
   col += mix(vec3(0.3, 0.05, 0.25), vec3(0.05, 0.25, 0.3), step(0.5, fract(s / 60.0))) * graze * wet * uLights * 0.2;
   float fog = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);

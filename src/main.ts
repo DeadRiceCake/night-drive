@@ -26,6 +26,7 @@ import { Rain } from './fx/weather'
 import { DriveAudio } from './audio'
 import { loadSettings, mountSettings, resolveTime, type Settings } from './ui/settings'
 import { Minimap, nextDistrict } from './ui/minimap'
+import { Q, QUALITY } from './quality'
 import { BoxGeometry, Color, Mesh, MeshBasicMaterial, PMREMGenerator } from 'three'
 
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1'
@@ -50,7 +51,8 @@ const hudDebug = document.getElementById('hud-debug')
 
 // ------------------------------------------------------------- renderer
 const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+let dpr = Math.min(window.devicePixelRatio, Q.dpr)
+renderer.setPixelRatio(dpr)
 renderer.toneMapping = ACESFilmicToneMapping
 renderer.toneMappingExposure = 1
 const scene = new Scene()
@@ -68,8 +70,8 @@ const rain = new Rain()
 scene.add(rain.lines)
 const lights = new LightPool()
 scene.add(lights.group)
-const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy())
-const post = new Post(renderer, scene, camera, window.innerWidth, window.innerHeight)
+const ANISO = Math.min(Q.anisotropy, renderer.capabilities.getMaxAnisotropy())
+const post = new Post(renderer, scene, camera, window.innerWidth, window.innerHeight, Q.bloomScale)
 const audio = new DriveAudio()
 
 // ------------------------------------------------------------- settings
@@ -165,9 +167,9 @@ async function buildWorld(seed: number): Promise<World> {
   group.add(buildTerrain(route, routeIndex))
   const ocean = new Ocean()
   group.add(ocean.mesh)
-  const traffic = new Traffic(route, seed)
+  const traffic = new Traffic(route, seed, Q.cars, Q.avs)
   group.add(traffic.group)
-  const peds = new Peds(route, seed)
+  const peds = new Peds(route, seed, Q.peds)
   group.add(peds.group)
   lights.setLamps(roads.lamps)
   const neon: NeonEntry[] = []
@@ -344,7 +346,12 @@ function frame(now: number): void {
     fps = Math.round(fpsN / fpsAcc)
     fpsAcc = 0
     fpsN = 0
-    if (hudDebug) hudDebug.textContent = `${fps} FPS  s=${Math.round(s)}  ${smp.kind}  ${smp.district}  spd=${Math.round(speed)}  calls=${renderer.info.render.calls}  tris=${renderer.info.render.triangles}`
+    // dynamic resolution: step the pixel ratio down while the frame rate is poor, back up when it is comfortable
+    const cap = Math.min(window.devicePixelRatio, Q.dpr)
+    if (fps < 30 && dpr > Q.dprMin + 0.01) dpr = Math.max(Q.dprMin, dpr - 0.15)
+    else if (fps > 56 && dpr < cap - 0.01) dpr = Math.min(cap, dpr + 0.05)
+    if (Math.abs(renderer.getPixelRatio() - dpr) > 0.01) { renderer.setPixelRatio(dpr); resize() }
+    if (hudDebug) hudDebug.textContent = `${fps} FPS  ${QUALITY} dpr=${dpr.toFixed(2)}  s=${Math.round(s)}  ${smp.kind}  ${smp.district}  spd=${Math.round(speed)}  calls=${renderer.info.render.calls}  tris=${renderer.info.render.triangles}`
   }
 }
 

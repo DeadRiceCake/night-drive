@@ -29,6 +29,7 @@ npm run build      # dist/
 | `weather` | `clear` `rain` `fog` |
 | `at` | 구역 id로 시작 위치 지정: `corpo` `downtown` `littlechina` `kabuki` `northside` `waterfront` `japantown` `charterhill` `northoak` `wellsprings` `glen` `vistadelrey` `arroyo` `rancho` `coastview` `westwind` |
 | `seed` | 정수. 같은 시드 = 같은 도시 디테일 |
+| `quality` | `high` `low`. 기본은 기기 판별(모바일 → low). low는 DPR 1.0·광원 절반·블룸 절반 해상도. 어느 티어든 FPS가 30 아래로 떨어지면 해상도를 자동으로 낮춘다 |
 | `speed` | 0.3 ~ 2 |
 | `sound` | `1` (엔진·노면·빗소리, 첫 클릭 후) |
 | `fx` | `0` (블룸·필름 효과 끄기) |

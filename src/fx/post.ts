@@ -63,12 +63,12 @@ export class Post {
   bloom: UnrealBloomPass
   grade: ShaderPass
   enabled = true
-  constructor(private renderer: WebGLRenderer, scene: Scene, camera: Camera, w: number, h: number) {
+  constructor(private renderer: WebGLRenderer, scene: Scene, camera: Camera, w: number, h: number, private bloomScale = 1) {
     this.composer = new EffectComposer(renderer)
     this.composer.renderTarget1.texture.type = HalfFloatType
     this.composer.renderTarget2.texture.type = HalfFloatType
     this.composer.addPass(new RenderPass(scene, camera))
-    this.bloom = new UnrealBloomPass(new Vector2(w, h), 0.6, 0.4, 0.95)
+    this.bloom = new UnrealBloomPass(new Vector2(w * bloomScale, h * bloomScale), 0.6, 0.4, 0.95)
     this.composer.addPass(this.bloom)
     this.grade = new ShaderPass(GRADE)
     this.composer.addPass(this.grade)
@@ -77,7 +77,7 @@ export class Post {
   }
   setSize(w: number, h: number): void {
     this.composer.setSize(w, h)
-    this.bloom.setSize(w, h)
+    this.bloom.setSize(w * this.bloomScale, h * this.bloomScale)
   }
   render(time: number, rain: number, scene: Scene, camera: Camera): void {
     if (!this.enabled) {
