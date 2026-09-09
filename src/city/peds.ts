@@ -40,7 +40,7 @@ export class Peds {
 
   constructor(private route: Route, seed: number, count = 420) {
     this.rng = mulberry32(seed ^ 0x9ed5)
-    this.mesh = new InstancedMesh(pedGeometry(), new MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0.1 }), count)
+    this.mesh = new InstancedMesh(pedGeometry(), new MeshStandardMaterial({ color: 0x555560, roughness: 0.95, metalness: 0.0 }), count)
     this.mesh.frustumCulled = false
     this.group.add(this.mesh)
     for (let i = 0; i < count; i++) {

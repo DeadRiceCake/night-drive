@@ -5,7 +5,7 @@
 import { mulberry32, hashStr, type Rng } from '../core/rng'
 import { C, CORRIDOR, HIGHWAY_HALF, ROAD_HALF } from '../tokens'
 import { BuildingSet, STYLE, type BuildingInstance } from './buildings'
-import { DISTRICTS, coastDistance, districtAt, groundHeight, isWater, terrainHeight, type DistrictId } from './map'
+import { DISTRICTS, blendWeight, coastDistance, districtAt, groundHeight, isWater, neighbourAcross, terrainHeight, type DistrictId } from './map'
 import type { Route, RouteIndex } from './route'
 import { GlowPoints, SignSet, type Atlas, type Tile } from './signs'
 
@@ -73,13 +73,13 @@ export const PRESETS: Record<DistrictId, Preset> = {
   },
   littlechina: {
     block: 72, street: 18, lots: 2, density: 0.95, hMin: 18, hMax: 62, hPow: 1.4, tallP: 0.1, tallMul: 2.2, lit: 0.4,
-    styles: [STYLE.residential, STYLE.residential, STYLE.mega], colors: WARM, neonP: 0.45, neonColors: [C.red, C.orange, C.yellow, C.magenta],
+    styles: [STYLE.residential, STYLE.brick, STYLE.brick, STYLE.mega], colors: WARM, neonP: 0.45, neonColors: [C.red, C.orange, C.yellow, C.magenta],
     signP: 0.95, vsignP: 0.8, holoP: 0.2, brandP: 0.1, screenP: 0.15, lang: ['cn', 'cn', 'en'], lamp: C.sodium, rotJitter: 0.02, props: { ac: 0.9, antenna: 0.3, watertower: 0.2 },
     street_: 0.9, parked: 5, setback: 2,
   },
   kabuki: {
     block: 62, street: 15, lots: 3, density: 0.97, hMin: 12, hMax: 44, hPow: 1.5, tallP: 0.08, tallMul: 2.6, lit: 0.45,
-    styles: [STYLE.residential, STYLE.residential, STYLE.industrial], colors: [...GREY, ...WARM], neonP: 0.32,
+    styles: [STYLE.residential, STYLE.brick, STYLE.brick, STYLE.industrial], colors: [...GREY, ...WARM], neonP: 0.32,
     neonColors: [C.cyan, C.magenta, C.pink, C.yellow, C.red], signP: 1, vsignP: 1, holoP: 0.4, brandP: 0.1, screenP: 0.25, lang: ['jp', 'jp', 'en'],
     lamp: C.sodium, rotJitter: 0.04, props: { ac: 1, antenna: 0.4, watertower: 0.25 }, street_: 1, parked: 5, setback: 1.5,
   },
@@ -96,7 +96,7 @@ export const PRESETS: Record<DistrictId, Preset> = {
   },
   japantown: {
     block: 68, street: 17, lots: 2, density: 0.96, hMin: 24, hMax: 95, hPow: 1.3, tallP: 0.15, tallMul: 2.2, lit: 0.45,
-    styles: [STYLE.residential, STYLE.glass, STYLE.mega, STYLE.residential], colors: [0x2a2030, 0x1e1a28, 0x261c2c, ...GREY], neonP: 0.8,
+    styles: [STYLE.residential, STYLE.glass, STYLE.mega, STYLE.brick], colors: [0x2a2030, 0x1e1a28, 0x261c2c, ...GREY], neonP: 0.8,
     neonColors: [C.pink, C.magenta, C.red, C.cyan, C.violet], signP: 1, vsignP: 1, holoP: 0.6, brandP: 0.2, screenP: 0.45, lang: ['jp', 'jp', 'en'],
     lamp: 0xffb0d0, rotJitter: 0.01, props: { ac: 0.7, antenna: 0.5 }, street_: 1, parked: 4, setback: 2,
   },
@@ -122,7 +122,7 @@ export const PRESETS: Record<DistrictId, Preset> = {
   },
   vistadelrey: {
     block: 70, street: 16, lots: 3, density: 0.95, hMin: 8, hMax: 30, hPow: 1.5, tallP: 0.05, tallMul: 2.4, lit: 0.38,
-    styles: [STYLE.residential, STYLE.residential, STYLE.house], colors: [0x332a24, 0x3a3028, 0x2c2622, 0x36302a], neonP: 0.2,
+    styles: [STYLE.residential, STYLE.brick, STYLE.house], colors: [0x332a24, 0x3a3028, 0x2c2622, 0x36302a], neonP: 0.2,
     neonColors: [C.yellow, C.orange, C.red], signP: 0.6, vsignP: 0.15, holoP: 0.08, brandP: 0.05, screenP: 0.05, lang: ['en'], lamp: C.sodium, rotJitter: 0.03,
     props: { ac: 0.8, watertower: 0.3, antenna: 0.3, dumpster: 0.5, palm: 0.3 }, street_: 0.7, parked: 5, setback: 2,
   },
@@ -144,7 +144,7 @@ export const PRESETS: Record<DistrictId, Preset> = {
   },
   westwind: {
     block: 92, street: 22, lots: 2, density: 0.85, hMin: 14, hMax: 46, hPow: 1.3, tallP: 0.05, tallMul: 2, lit: 0.26,
-    styles: [STYLE.residential, STYLE.residential, STYLE.unfinished], colors: [0x2c2c30, 0x34302e, 0x282a2e], neonP: 0.12,
+    styles: [STYLE.residential, STYLE.brick, STYLE.unfinished], colors: [0x2c2c30, 0x34302e, 0x282a2e], neonP: 0.12,
     neonColors: [C.violet, C.orange, C.cyan], signP: 0.35, vsignP: 0.1, holoP: 0.05, brandP: 0.05, screenP: 0.05, lang: ['en'], lamp: C.sodium, rotJitter: 0.01,
     props: { ac: 0.6, palm: 0.3, antenna: 0.3, dumpster: 0.4 }, street_: 0.4, parked: 3, setback: 3,
   },
@@ -206,7 +206,9 @@ export function generateDistricts(g: GenContext): void {
   for (const d of DISTRICTS) {
     const p = PRESETS[d.id]
     const drng = mulberry32(hashStr(d.id) ^ rng.int(0, 1e9))
-    const [x0, z0, x1, z1] = d.box
+    // blocks also fill the gaps between boxes (districtAt assigns each gap point to its nearest district)
+    const [bx0, bz0, bx1, bz1] = d.box
+    const x0 = bx0 - 240, z0 = bz0 - 240, x1 = bx1 + 240, z1 = bz1 + 240
     const pitch = p.block + p.street
     for (let bz = z0 + p.street / 2; bz + p.block <= z1; bz += pitch) {
       for (let bx = x0 + p.street / 2; bx + p.block <= x1; bx += pitch) {
@@ -219,7 +221,7 @@ export function generateDistricts(g: GenContext): void {
         const gy = terrainHeight(cx, cz)
         if (!blockOnRoute && p.street > 0) {
           city.buildings.add({
-            x: cx, y: gy - 0.1, z: cz, w: p.block + 3, h: 0.3, d: p.block + 3, style: STYLE.house, color: 0x2a2a30, glow: 0, lit: 0, neon: 0, seed: drng.int(0, 500),
+            x: cx, y: gy - 0.1, z: cz, w: p.block + 3, h: 0.3, d: p.block + 3, style: STYLE.plain, color: 0x2a2a30, glow: 0, lit: 0, neon: 0, seed: drng.int(0, 500),
           })
         }
         if (p.lamp && drng.chance(0.85)) city.glow.add(bx - p.street / 2, gy + 9, bz - p.street / 2, p.lamp, 9)
@@ -231,22 +233,26 @@ export function generateDistricts(g: GenContext): void {
             const fw = lotSize * drng.range(0.55, 0.92), fd = lotSize * drng.range(0.55, 0.92)
             const x = lx0 + lotSize / 2 + drng.range(-1, 1) * (lotSize - fw) * 0.4
             const z = lz0 + lotSize / 2 + drng.range(-1, 1) * (lotSize - fd) * 0.4
+            // seamless borders: near a district edge a lot may take the neighbour's preset
+            let lp = p
+            const bw = blendWeight(x, z, d.id)
+            if (bw > 0 && drng.chance(bw)) { const nb = neighbourAcross(x, z, d.id); if (nb !== 'badlands') lp = PRESETS[nb] }
             const rad = Math.hypot(fw, fd) / 2
             const n = index.nearest(x, z, CORRIDOR + rad + 80)
             if (n.d < CORRIDOR + rad + p.setback) continue
             if (isWater(x, z) || excluded(exclusions, x, z, rad)) continue
-            let h = p.hMin + (p.hMax - p.hMin) * Math.pow(drng.next(), p.hPow)
-            if (drng.chance(p.tallP)) h *= p.tallMul
+            let h = lp.hMin + (lp.hMax - lp.hMin) * Math.pow(drng.next(), lp.hPow)
+            if (drng.chance(lp.tallP)) h *= lp.tallMul
             // no needles: keep towers within ~5x their footprint
             h = Math.min(h, Math.max(fw, fd) * 5.5)
-            const style = drng.pick(p.styles)
+            const style = drng.pick(lp.styles)
             const y = groundHeight(x, z, n.i >= 0 && n.d < Infinity ? { d: n.d, y: g.route.samples[n.i].y, highway: g.route.samples[n.i].kind === 'highway' } : null)
-            const neonOn = drng.chance(p.neonP)
+            const neonOn = drng.chance(lp.neonP)
             const neon = neonOn ? (h > 60 ? drng.pick([1, 2, 3, 3]) : drng.pick([1, 1, 3])) : 0
-            const glow = neonOn ? drng.pick(p.neonColors) : 0
-            const rot = (drng.next() - 0.5) * 2 * p.rotJitter
-            const color = drng.pick(p.colors)
-            const lit = p.lit * drng.range(0.5, 1.4)
+            const glow = neonOn ? drng.pick(lp.neonColors) : 0
+            const rot = (drng.next() - 0.5) * 2 * lp.rotJitter
+            const color = drng.pick(lp.colors)
+            const lit = lp.lit * drng.range(0.5, 1.4)
             const base: BuildingInstance = { x, y: y - 0.2, z, w: fw, h, d: fd, rot, style, color, glow, lit, neon, seed: drng.int(0, 1000) }
             // massing: plain box / podium + tower / stepped tiers
             let topW = fw, topD = fd
@@ -271,19 +277,19 @@ export function generateDistricts(g: GenContext): void {
             }
             const top = y + h
             if (h > 110 || (h > 70 && drng.chance(0.4))) city.glow.add(x, top + 2, z, C.red, 5, 0.9)
-            if (p.props.antenna && drng.chance(p.props.antenna) && h > 25) {
+            if (lp.props.antenna && drng.chance(lp.props.antenna) && h > 25) {
               city.props.push({ kind: 'antenna', x: x + (drng.next() - 0.5) * topW * 0.5, y: top, z: z + (drng.next() - 0.5) * topD * 0.5, rot: 0, s: drng.range(0.6, 1.6) })
             }
-            if (p.props.watertower && drng.chance(p.props.watertower) && h < 60) {
+            if (lp.props.watertower && drng.chance(lp.props.watertower) && h < 60) {
               city.props.push({ kind: 'watertower', x: x + (drng.next() - 0.5) * topW * 0.4, y: top, z: z + (drng.next() - 0.5) * topD * 0.4, rot: 0, s: 1 })
             }
-            if (p.props.ac && drng.chance(p.props.ac)) {
+            if (lp.props.ac && drng.chance(lp.props.ac)) {
               const cnt = drng.int(1, 4)
               for (let i = 0; i < cnt; i++) city.props.push({ kind: 'ac', x: x + (drng.next() - 0.5) * topW * 0.8, y: top, z: z + (drng.next() - 0.5) * topD * 0.8, rot: 0, s: 1 })
             }
             const isFront = n.d < CORRIDOR + rad + 40
             const s = isFront ? g.route.samples[n.i] : null
-            if (p.brandP && drng.chance(p.brandP) && h > 50 && s) {
+            if (lp.brandP && drng.chance(lp.brandP) && h > 50 && s) {
               const t = drng.pick(atlas.brands)
               const face = facing({ x, z, w: topW, d: topD }, s.x, s.z)
               const sw = Math.min(topW * 0.8, 40), sh = sw / t.aspect
@@ -295,17 +301,17 @@ export function generateDistricts(g: GenContext): void {
               const off = face.nx ? fw / 2 : fd / 2
               const along = face.nx ? fd : fw
               // facade video screens (opaque, bright)
-              if (p.screenP && drng.chance(p.screenP) && h > 30 && along > 14) {
+              if (lp.screenP && drng.chance(lp.screenP) && h > 30 && along > 14) {
                 const t = drng.pick(atlas.ads)
                 const sw = Math.min(along * drng.range(0.45, 0.8), 34), sh = sw / t.aspect
                 const sy = y + drng.range(h * 0.3, Math.max(h * 0.3 + 1, h - sh - 4))
                 city.signs.add({ x: x + face.nx * (off + 0.4), y: sy + sh / 2, z: z + face.nz * (off + 0.4), rot: face.rot, w: sw, h: sh, tile: t, intensity: 1.5 })
                 city.glow.add(x + face.nx * (off + 2), sy + sh / 2, z + face.nz * (off + 2), t.color, sw * 0.5)
               }
-              if (p.signP && drng.chance(p.signP)) {
+              if (lp.signP && drng.chance(lp.signP)) {
                 const cnt = drng.int(1, h > 30 ? 3 : 2)
                 for (let i = 0; i < cnt; i++) {
-                  const t = pickTile(drng, atlas.signs, p.lang)
+                  const t = pickTile(drng, atlas.signs, lp.lang)
                   const sw = Math.min(along * drng.range(0.35, 0.8), 18), sh = sw / t.aspect
                   const sy = 3.5 + i * (sh + 1.2) + drng.range(0, 1.5)
                   if (sy + sh > h - 1) break
@@ -316,10 +322,10 @@ export function generateDistricts(g: GenContext): void {
                   city.glow.add(sx + face.nx * 0.5, y + sy + sh / 2, sz + face.nz * 0.5, t.color, sw * 0.7)
                 }
               }
-              if (p.vsignP && drng.chance(p.vsignP)) {
+              if (lp.vsignP && drng.chance(lp.vsignP)) {
                 const cnt = drng.int(1, 2)
                 for (let i = 0; i < cnt; i++) {
-                  const t = pickTile(drng, atlas.vsigns, p.lang)
+                  const t = pickTile(drng, atlas.vsigns, lp.lang)
                   const sh = Math.min(h * drng.range(0.35, 0.7), 22), sw = sh * t.aspect
                   const cornerSide = i === 0 ? 1 : -1
                   const cx2 = x + face.nx * (off + sw / 2 + 0.2) + (face.nz ? cornerSide * (along / 2 - sw) : 0)
@@ -327,14 +333,14 @@ export function generateDistricts(g: GenContext): void {
                   city.signs.add({ x: cx2, y: y + 4 + sh / 2, z: cz2, rot: face.rot + Math.PI / 2, w: sw, h: sh, tile: t, intensity: drng.range(1.8, 2.6) })
                 }
               }
-              if (p.holoP && drng.chance(p.holoP) && h > 40) {
+              if (lp.holoP && drng.chance(lp.holoP) && h > 40) {
                 const t = drng.pick(atlas.holos)
                 const hh = Math.min(h * drng.range(0.3, 0.55), 70), hw = hh * t.aspect
                 const hy = drng.chance(0.5) ? top + hh / 2 + 2 : y + h * drng.range(0.35, 0.7)
                 city.holos.add({ x: x + face.nx * (off + 1.2), y: hy, z: z + face.nz * (off + 1.2), rot: face.rot, w: hw, h: hh, tile: t, intensity: 1.6, scroll: drng.range(0.5, 1.5) })
               }
               // street level: awnings, vending machines, stalls, dumpsters
-              if (p.street_ && drng.chance(p.street_)) {
+              if (lp.street_ && drng.chance(lp.street_)) {
                 const cnt = drng.int(1, 3)
                 for (let i = 0; i < cnt; i++) {
                   const slide = (drng.next() - 0.5) * (along - 6)
@@ -355,7 +361,7 @@ export function generateDistricts(g: GenContext): void {
                   }
                 }
               }
-            } else if (p.holoP && drng.chance(p.holoP * 0.25) && h > 60) {
+            } else if (lp.holoP && drng.chance(lp.holoP * 0.25) && h > 60) {
               const t = drng.pick(atlas.holos)
               const hh = Math.min(h * 0.4, 60), hw = hh * t.aspect
               city.holos.add({ x, y: top + hh / 2 + 3, z, rot: drng.range(0, Math.PI * 2), w: hw, h: hh, tile: t, intensity: 1.3, scroll: drng.range(0.5, 1.5) })
@@ -402,12 +408,12 @@ export function generateRoadside(g: GenContext): void {
         // estate wall with warm gate lamps
         const [x, z] = at(ROAD_HALF + 14)
         if (!isWater(x, z)) {
-          city.buildings.add({ x, y: gy(x, z) - 0.3, z, w: 1.2, h: 2.6, d: 60, rot: -heading, style: STYLE.house, color: 0x2a2624, glow: 0, lit: 0, neon: 0 })
+          city.buildings.add({ x, y: gy(x, z) - 0.3, z, w: 1.2, h: 2.6, d: 60, rot: -heading, style: STYLE.plain, color: 0x2a2624, glow: 0, lit: 0, neon: 0 })
           city.glow.add(x, gy(x, z) + 3.2, z, C.warmWindow, 4)
         }
       }
     } else if ((d === 'northside' || d === 'waterfront' || d === 'arroyo') && drng.chance(0.55)) {
-      const [x, z] = at(ROAD_HALF + drng.range(3, 6))
+      const [x, z] = at(ROAD_HALF + drng.range(7, 11))
       if (isWater(x, z)) continue
       const y = gy(x, z)
       const n = drng.int(1, 3)
@@ -444,7 +450,7 @@ export function generateOverheads(g: GenContext): void {
       for (let i = 0; i < 3; i++) city.buildings.add({ x: smp.x, y: smp.y + h + i * 0.9, z: smp.z + (i - 1) * 0.2, w: span, h: 0.7, d: 0.7, rot: -heading, style: STYLE.industrial, color: 0x3a3a40, glow: 0, lit: 0, neon: 0 })
     } else {
       // sign bridge with hanging neon
-      city.buildings.add({ x: smp.x, y: smp.y + h, z: smp.z, w: span, h: 0.5, d: 0.5, rot: -heading, style: STYLE.house, color: 0x2a2a30, glow: 0, lit: 0, neon: 0 })
+      city.buildings.add({ x: smp.x, y: smp.y + h, z: smp.z, w: span, h: 0.5, d: 0.5, rot: -heading, style: STYLE.plain, color: 0x2a2a30, glow: 0, lit: 0, neon: 0 })
       const cnt = drng.int(2, 4)
       for (let i = 0; i < cnt; i++) {
         const t = pickTile(drng, atlas.signs, p.lang)
@@ -456,7 +462,7 @@ export function generateOverheads(g: GenContext): void {
     }
     // support posts
     for (const sg of [-1, 1]) {
-      city.buildings.add({ x: smp.x + rx * (span / 2 - 0.6) * sg, y: smp.y - 0.4, z: smp.z + rz * (span / 2 - 0.6) * sg, w: 1.3, h: h + 1.5, d: 1.3, rot: -heading, style: STYLE.house, color: 0x26262c, glow: 0, lit: 0, neon: 0 })
+      city.buildings.add({ x: smp.x + rx * (span / 2 - 0.6) * sg, y: smp.y - 0.4, z: smp.z + rz * (span / 2 - 0.6) * sg, w: 1.3, h: h + 1.5, d: 1.3, rot: -heading, style: STYLE.plain, color: 0x26262c, glow: 0, lit: 0, neon: 0 })
     }
   }
 }
@@ -495,9 +501,9 @@ export function generateGantries(g: GenContext): void {
     const heading = Math.atan2(smp.tx, smp.tz)
     const half = HIGHWAY_HALF + 1.5
     // beam + posts as dark boxes
-    city.buildings.add({ x: smp.x, y: smp.y + 6.2, z: smp.z, w: half * 2 + 1, h: 0.7, d: 0.6, rot: -heading, style: STYLE.house, color: 0x26262c, glow: 0, lit: 0, neon: 0 })
+    city.buildings.add({ x: smp.x, y: smp.y + 6.2, z: smp.z, w: half * 2 + 1, h: 0.7, d: 0.6, rot: -heading, style: STYLE.plain, color: 0x26262c, glow: 0, lit: 0, neon: 0 })
     for (const sg of [-1, 1]) {
-      city.buildings.add({ x: smp.x + rx * half * sg, y: smp.y - 0.5, z: smp.z + rz * half * sg, w: 0.6, h: 7, d: 0.6, style: STYLE.house, color: 0x26262c, glow: 0, lit: 0, neon: 0 })
+      city.buildings.add({ x: smp.x + rx * half * sg, y: smp.y - 0.5, z: smp.z + rz * half * sg, w: 0.6, h: 7, d: 0.6, style: STYLE.plain, color: 0x26262c, glow: 0, lit: 0, neon: 0 })
     }
     // name the next real district the road reaches (skip badlands gaps between boxes)
     let ahead: DistrictId = 'badlands'

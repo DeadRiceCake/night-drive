@@ -8,6 +8,9 @@ import { ATMOS, EYE_HEIGHT, LANE_OFFSET, LOOK_AHEAD, SPEED_CITY, SPEED_HIGHWAY, 
 import { Route, RouteIndex } from './city/route'
 import { DISTRICT_BY_ID, districtName, type DistrictId } from './city/map'
 import { BuildingSet } from './city/buildings'
+import { buildFacadeAtlas, type FacadeAtlas } from './city/facades'
+import { buildSurfaces, type SurfaceTextures } from './city/surfaces'
+import { LightPool, type NeonEntry } from './fx/lights'
 import { buildAtlas, GlowPoints, SignSet } from './city/signs'
 import { generateBadlands, generateDistricts, generateGantries, generateOverheads, generateParked, generateRoadside, type CityData, type PropInstance } from './city/generator'
 import { Peds } from './city/peds'
@@ -22,6 +25,8 @@ import { Post } from './fx/post'
 import { Rain } from './fx/weather'
 import { DriveAudio } from './audio'
 import { loadSettings, mountSettings, resolveTime, type Settings } from './ui/settings'
+import { Minimap, nextDistrict } from './ui/minimap'
+import { BoxGeometry, Color, Mesh, MeshBasicMaterial, PMREMGenerator } from 'three'
 
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1'
 
@@ -31,13 +36,14 @@ const hudEl = document.getElementById('hud') as HTMLDivElement
 const loadingEl = document.getElementById('loading') as HTMLDivElement
 hudEl.innerHTML = `
   <div class="hud-corner tl"></div><div class="hud-corner tr"></div><div class="hud-corner bl"></div><div class="hud-corner br"></div>
-  <div class="hud-district"><b id="hud-name">Corpo Plaza</b><i id="hud-region">CITY CENTER</i></div>
+  <div class="hud-district"><b id="hud-name">Corpo Plaza</b><i id="hud-region">CITY CENTER</i><em id="hud-next"></em></div>
   <div class="hud-clock"><b id="hud-time">23:47</b>NIGHT CITY</div>
   <div class="hud-speed"><b id="hud-kmh">0</b><i>KM/H</i></div>
   ${DEBUG ? '<div class="hud-debug" id="hud-debug"></div>' : ''}
 `
 const hudName = document.getElementById('hud-name')!
 const hudRegion = document.getElementById('hud-region')!
+const hudNext = document.getElementById('hud-next')!
 const hudTime = document.getElementById('hud-time')!
 const hudKmh = document.getElementById('hud-kmh')!
 const hudDebug = document.getElementById('hud-debug')
@@ -60,6 +66,9 @@ camera.add(cockpit.group)
 scene.add(camera)
 const rain = new Rain()
 scene.add(rain.lines)
+const lights = new LightPool()
+scene.add(lights.group)
+const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy())
 const post = new Post(renderer, scene, camera, window.innerWidth, window.innerHeight)
 const audio = new DriveAudio()
 
@@ -86,11 +95,39 @@ interface World {
   peds: Peds
   ads: Ads
   wallRange: [number, number]
+  facades: FacadeAtlas
+  surfaces: SurfaceTextures
 }
 
 let world: World | null = null
 const route = new Route()
 const routeIndex = new RouteIndex(route)
+const minimap = new Minimap(route)
+hudEl.appendChild(minimap.canvas)
+cockpit.setNav(minimap.texture)
+
+// reflection environment for the cockpit: the sky dome plus a ring of neon-coloured emitters
+const pmrem = new PMREMGenerator(renderer)
+const envSky = new Sky()
+const envScene = new Scene()
+envScene.add(envSky.mesh)
+for (let i = 0; i < 24; i++) {
+  const a = (i / 24) * Math.PI * 2
+  const b = new Mesh(new BoxGeometry(24, 70 + (i % 3) * 50, 24), new MeshBasicMaterial({ color: new Color([0x37ebf3, 0xff2a6d, 0xfcee0a, 0xffd28a, 0x9fd8ff][i % 5]).multiplyScalar(0.45) }))
+  b.position.set(Math.cos(a) * 320, 30 + (i % 3) * 30, Math.sin(a) * 320)
+  envScene.add(b)
+}
+let envPreset: TimePreset | '' = ''
+let envTex: import('three').Texture | null = null
+function refreshEnv(): void {
+  if (envPreset === preset) return
+  envPreset = preset
+  envSky.update(preset, 0)
+  const rt = pmrem.fromScene(envScene, 0.05, 0.1, 6000)
+  envTex?.dispose()
+  envTex = rt.texture
+  cockpit.setEnvironment(envTex)
+}
 let s = 0
 let speed = 0
 let steer = 0
@@ -99,6 +136,8 @@ let curDistrict: DistrictId | '' = ''
 async function buildWorld(seed: number): Promise<World> {
   const rng = mulberry32(seed)
   const atlas = buildAtlas(rng)
+  const facades = buildFacadeAtlas(rng, ANISO)
+  const surfaces = buildSurfaces(rng, ANISO)
   const city: CityData = {
     buildings: new BuildingSet(), signs: new SignSet(atlas, false), holos: new SignSet(atlas, true), glow: new GlowPoints(), props: [] as PropInstance[],
   }
@@ -114,7 +153,8 @@ async function buildWorld(seed: number): Promise<World> {
   const ads = new Ads(atlas, city.signs)
   await ads.load('ads/manifest.json')
   ads.place(route, routeIndex, rng, 0)
-  const roads = new RoadSystem(route, city)
+  city.buildings.setAtlas(facades.albedo, facades.detail)
+  const roads = new RoadSystem(route, city, surfaces, EXCLUSIONS)
   group.add(roads.group)
   const props = buildProps(city.props, city.glow)
   group.add(props.group)
@@ -129,15 +169,20 @@ async function buildWorld(seed: number): Promise<World> {
   group.add(traffic.group)
   const peds = new Peds(route, seed)
   group.add(peds.group)
+  lights.setLamps(roads.lamps)
+  const neon: NeonEntry[] = []
+  city.glow.forEach((x, y, z, color, size) => { if (size >= 6) neon.push({ x, y, z, color, size }) })
+  lights.setNeon(neon)
   // ad wall: the first 300 m of downtown after entering it
   const dt = route.findDistrict('downtown')
   const wallRange: [number, number] = [dt + 60, dt + 420]
   if (DEBUG) console.info('[world]', { buildings: city.buildings.items.length, signs: city.signs.items.length, holos: city.holos.items.length, glow: city.glow.count, props: city.props.length })
-  return { group, route, buildings: city.buildings, signs: city.signs, holos: city.holos, glow: city.glow, roads, ocean, props, traffic, peds, ads, wallRange }
+  return { group, route, buildings: city.buildings, signs: city.signs, holos: city.holos, glow: city.glow, roads, ocean, props, traffic, peds, ads, wallRange, facades, surfaces }
 }
 
 function disposeWorld(w: World): void {
   scene.remove(w.group)
+  w.facades.albedo.dispose(); w.facades.detail.dispose(); w.surfaces.albedo.dispose(); w.surfaces.detail.dispose()
   w.group.traverse((o) => {
     const m = o as { geometry?: { dispose(): void }; material?: { dispose(): void } | { dispose(): void }[] }
     m.geometry?.dispose()
@@ -204,7 +249,7 @@ window.addEventListener('resize', resize)
 resize()
 
 // ------------------------------------------------------------- loop
-const camPos = new Vector3(), look = new Vector3(), forward = new Vector3()
+const camPos = new Vector3(), look = new Vector3(), forward = new Vector3(), rightV = new Vector3(), UP = new Vector3(0, 1, 0)
 let last = performance.now()
 let time = 0
 let fps = 0, fpsAcc = 0, fpsN = 0
@@ -239,7 +284,9 @@ function frame(now: number): void {
   steer += (curv * 26 - steer) * Math.min(1, dt * 4)
   camera.rotateZ(-steer * 0.06)
   forward.copy(look).sub(camPos).normalize()
+  rightV.crossVectors(forward, UP).normalize()
   cockpit.update(steer)
+  lights.update(s, route.length, camPos, forward, rightV, preset, preset !== 'day')
 
   // ---- atmosphere
   ;(scene.fog as FogExp2).color.set(a.fogColor)
@@ -278,9 +325,13 @@ function frame(now: number): void {
     hudRegion.textContent = REGION_LABEL[DISTRICT_BY_ID[smp.district].region] ?? ''
     hudName.animate([{ opacity: 0, transform: 'translateX(-12px)' }, { opacity: 1, transform: 'none' }], { duration: 500, easing: 'ease-out' })
   }
+  const nx = nextDistrict(route, s, smp.district)
+  hudNext.textContent = nx ? `NEXT ▸ ${districtName(nx.id).toUpperCase()} · ${nx.dist >= 1000 ? (nx.dist / 1000).toFixed(1) + ' KM' : Math.round(nx.dist / 10) * 10 + ' M'}` : ''
+  minimap.draw(camPos.x, camPos.z, Math.atan2(smp.tx, smp.tz), now, smp.district, nx?.id ?? null, nx?.dist ?? 0)
+  refreshEnv()
   const d = new Date()
   hudTime.textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  cockpit.drawCluster({ kmh, rpm: 0.25 + (speed / SPEED_HIGHWAY) * 0.55 + Math.sin(time * 13) * 0.01, gear: Math.min(6, 1 + Math.floor(kmh / 22)), district: districtName(smp.district), time: hudTime.textContent }, now)
+  cockpit.drawCluster({ kmh, rpm: 0.25 + (speed / SPEED_HIGHWAY) * 0.55 + Math.sin(time * 13) * 0.01, gear: Math.min(6, 1 + Math.floor(kmh / 22)), district: districtName(smp.district), time: hudTime.textContent, next: nx ? districtName(nx.id) : '—', nextDist: nx?.dist ?? 0 }, now)
   if ((audioTick = (audioTick + 1) % 8) === 0) audio.setSpeed(speed / SPEED_CITY)
 
   // ---- render

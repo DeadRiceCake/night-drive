@@ -380,3 +380,26 @@ input[type='range']::-webkit-slider-thumb {
   font-size: 12px;
   letter-spacing: 0.05em;
 }
+
+/* ------------------------------------------------------------ minimap */
+.hud-district em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--yellow);
+  margin-top: 8px;
+  opacity: 0.9;
+}
+#hud .minimap {
+  position: absolute;
+  left: 4vw;
+  bottom: 5vh;
+  width: clamp(120px, 16vw, 210px);
+  height: clamp(120px, 16vw, 210px);
+  opacity: 0.92;
+  filter: drop-shadow(0 0 10px rgba(55, 235, 243, 0.25));
+}
+@media (max-width: 700px) {
+  #hud .minimap { width: 110px; height: 110px; left: 3vw; bottom: 3vh; }
+}

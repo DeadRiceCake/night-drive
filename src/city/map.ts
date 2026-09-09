@@ -2,6 +2,7 @@
  * Night City map: districts, coastline, terrain. Metres; +x east, -z north.
  * Origin is the centre of Corpo Plaza.
  */
+import { Color } from 'three'
 import { hash2 } from '../core/rng'
 
 export type DistrictId =
@@ -47,12 +48,22 @@ export const DISTRICT_BY_ID: Record<DistrictId, District> = Object.fromEntries(
 ) as Record<DistrictId, District>
 DISTRICT_BY_ID.badlands = { id: 'badlands', name: 'Badlands', region: 'badlands', box: [-9999, -9999, 9999, 9999] }
 
+/** Gaps between district boxes belong to the nearest district (within this distance) so the map reads seamless. */
+export const GAP_FILL = 320
+
 export function districtAt(x: number, z: number): DistrictId {
   for (const d of DISTRICTS) {
     const [x0, z0, x1, z1] = d.box
     if (x >= x0 && x < x1 && z >= z0 && z < z1) return d.id
   }
-  return 'badlands'
+  let best: DistrictId = 'badlands', bestD = GAP_FILL
+  for (const d of DISTRICTS) {
+    const [x0, z0, x1, z1] = d.box
+    const dx = Math.max(x0 - x, 0, x - x1), dz = Math.max(z0 - z, 0, z - z1)
+    const dist = Math.hypot(dx, dz)
+    if (dist < bestD) { bestD = dist; best = d.id }
+  }
+  return best
 }
 
 /** Coast x at a given z: everything west of it is ocean. */
@@ -126,4 +137,56 @@ export function groundHeight(x: number, z: number, near: { d: number; y: number;
 
 export function districtName(id: DistrictId): string {
   return DISTRICT_BY_ID[id].name
+}
+
+/** Distance from (x,z) to the nearest edge of district `id`'s box. */
+export function edgeDistance(x: number, z: number, id: DistrictId): number {
+  const d = DISTRICT_BY_ID[id]
+  if (id === 'badlands') return Infinity
+  const [x0, z0, x1, z1] = d.box
+  return Math.min(x - x0, x1 - x, z - z0, z1 - z)
+}
+
+/**
+ * Neighbouring district across the nearest edge of `id`'s box (badlands when
+ * there is none). Used to blend presets so borders don't read as hard cuts.
+ */
+export function neighbourAcross(x: number, z: number, id: DistrictId): DistrictId {
+  const d = DISTRICT_BY_ID[id]
+  if (id === 'badlands') return 'badlands'
+  const [x0, z0, x1, z1] = d.box
+  const cands: [number, number, number][] = [[x - x0, x0 - 30, z], [x1 - x, x1 + 30, z], [z - z0, x, z0 - 30], [z1 - z, x, z1 + 30]]
+  cands.sort((a, b) => a[0] - b[0])
+  return districtAt(cands[0][1], cands[0][2])
+}
+
+/** How much (0..1) a point should take from its neighbour's preset. Peaks at 0.5 on the border. */
+export function blendWeight(x: number, z: number, id: DistrictId, width = 180): number {
+  const e = edgeDistance(x, z, id)
+  if (e >= width) return 0
+  return 0.5 * (1 - e / width)
+}
+
+const T_SAND = new Color(0x6a5844), T_CITY = new Color(0x141418), T_DIRT = new Color(0x3c3226), T_GRASS = new Color(0x22281c)
+const _tc = new Color()
+function baseTint(id: DistrictId, x: number, z: number, out: Color): Color {
+  if (id === 'badlands') {
+    const vn = 0.5 + 0.5 * Math.sin(x * 0.011 * 1.7 + Math.sin(z * 0.013 * 2.3) * 1.5) * Math.cos(z * 0.013 * 1.3 + Math.sin(x * 0.011 * 1.1))
+    return out.copy(T_SAND).lerp(T_DIRT, 0.6 * vn)
+  }
+  if (id === 'northoak') return out.copy(T_GRASS)
+  if (id === 'rancho' || id === 'coastview') return out.copy(T_DIRT).lerp(T_CITY, 0.5)
+  return out.copy(T_CITY)
+}
+
+/** Terrain vertex colour, blended across district borders. */
+export function terrainTint(x: number, z: number, out: Color): Color {
+  const id = districtAt(x, z)
+  baseTint(id, x, z, out)
+  const w = blendWeight(x, z, id, 140)
+  if (w > 0) {
+    const nb = neighbourAcross(x, z, id)
+    if (nb !== id) out.lerp(baseTint(nb, x, z, _tc), w)
+  }
+  return out
 }

@@ -511,6 +511,14 @@ export class GlowPoints {
   get count(): number {
     return this.size.length
   }
+  /** Iterate halos (for the dynamic light pool). */
+  forEach(fn: (x: number, y: number, z: number, color: number, size: number) => void): void {
+    const c = new Color()
+    for (let i = 0; i < this.size.length; i++) {
+      c.setRGB(this.col[i * 3], this.col[i * 3 + 1], this.col[i * 3 + 2])
+      fn(this.pos[i * 3], this.pos[i * 3 + 1], this.pos[i * 3 + 2], c.getHex(), this.size[i])
+    }
+  }
   build(): Points {
     const geo = new BufferGeometry()
     geo.setAttribute('position', new BufferAttribute(new Float32Array(this.pos), 3))
