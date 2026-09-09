@@ -9,7 +9,7 @@ import { Route, RouteIndex } from './city/route'
 import { DISTRICT_BY_ID, districtName, type DistrictId } from './city/map'
 import { BuildingSet } from './city/buildings'
 import { buildAtlas, GlowPoints, SignSet } from './city/signs'
-import { generateBadlands, generateDistricts, generateGantries, generateOverheads, generateParked, type CityData, type PropInstance } from './city/generator'
+import { generateBadlands, generateDistricts, generateGantries, generateOverheads, generateParked, generateRoadside, type CityData, type PropInstance } from './city/generator'
 import { Peds } from './city/peds'
 import { EXCLUSIONS, placeLandmarks } from './city/landmarks'
 import { animateTurbines, buildProps, type PropMeshes } from './city/props'
@@ -110,6 +110,7 @@ async function buildWorld(seed: number): Promise<World> {
   generateParked(g)
   generateGantries(g)
   generateOverheads(g)
+  generateRoadside(g)
   const ads = new Ads(atlas, city.signs)
   await ads.load('ads/manifest.json')
   ads.place(route, routeIndex, rng, 0)
@@ -131,6 +132,7 @@ async function buildWorld(seed: number): Promise<World> {
   // ad wall: the first 300 m of downtown after entering it
   const dt = route.findDistrict('downtown')
   const wallRange: [number, number] = [dt + 60, dt + 420]
+  if (DEBUG) console.info('[world]', { buildings: city.buildings.items.length, signs: city.signs.items.length, holos: city.holos.items.length, glow: city.glow.count, props: city.props.length })
   return { group, route, buildings: city.buildings, signs: city.signs, holos: city.holos, glow: city.glow, roads, ocean, props, traffic, peds, ads, wallRange }
 }
 

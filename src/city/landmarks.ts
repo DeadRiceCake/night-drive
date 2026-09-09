@@ -36,25 +36,25 @@ export function placeLandmarks(g: GenContext): Group {
   {
     const x = -520, z = -80
     B.add({ x, y: 0, z, w: 150, h: 12, d: 150, style: STYLE.arasaka, color: 0x14141a, glow: C.arasakaRed, lit: 0, neon: 2 })
-    B.add({ x, y: 0, z, w: 118, h: 200, d: 118, style: STYLE.arasaka, color: 0x16161e, glow: C.arasakaRed, lit: 0, neon: 3 })
-    B.add({ x, y: 199, z, w: 92, h: 330, d: 92, style: STYLE.arasaka, color: 0x16161e, glow: C.arasakaRed, lit: 0, neon: 3 })
-    B.add({ x, y: 528, z, w: 66, h: 340, d: 66, style: STYLE.arasaka, color: 0x18181f, glow: C.arasakaRed, lit: 0, neon: 3 })
+    B.add({ x, y: 0, z, w: 140, h: 200, d: 140, style: STYLE.arasaka, color: 0x16161e, glow: C.arasakaRed, lit: 0, neon: 3 })
+    B.add({ x, y: 199, z, w: 112, h: 330, d: 112, style: STYLE.arasaka, color: 0x16161e, glow: C.arasakaRed, lit: 0, neon: 3 })
+    B.add({ x, y: 528, z, w: 84, h: 340, d: 84, style: STYLE.arasaka, color: 0x18181f, glow: C.arasakaRed, lit: 0, neon: 3 })
     // slanted crown: a box sheared by rotating a thin wedge
-    const crown = new Mesh(new ConeGeometry(52, 90, 4, 1), new MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.7, roughness: 0.4, emissive: 0x330008, emissiveIntensity: 0.6 }))
+    const crown = new Mesh(new ConeGeometry(66, 110, 4, 1), new MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.7, roughness: 0.4, emissive: 0x330008, emissiveIntensity: 0.6 }))
     crown.position.set(x, 868 + 45, z)
     crown.rotation.y = Math.PI / 4
     group.add(crown)
     // big red logotype on all four sides near the top
     const t = brand('ARASAKA')
-    const sw = 56, sh = sw / t.aspect
+    const sw = 72, sh = sw / t.aspect
     for (const [nx, nz, rot] of [[1, 0, Math.PI / 2], [-1, 0, -Math.PI / 2], [0, 1, 0], [0, -1, Math.PI]] as const) {
-      city.signs.add({ x: x + nx * 33.5, y: 820, z: z + nz * 33.5, rot, w: sw, h: sh, tile: t, intensity: 3 })
+      city.signs.add({ x: x + nx * 42.5, y: 820, z: z + nz * 42.5, rot, w: sw, h: sh, tile: t, intensity: 3 })
     }
     city.glow.add(x, 960, z, C.arasakaRed, 22, 1.2)
     city.glow.add(x, 870, z, C.arasakaRed, 60)
     // red edge lights up all four corners
     for (let y = 14; y < 868; y += 14) {
-      const s = y < 200 ? 59 : y < 528 ? 46 : 33
+      const s = y < 200 ? 70 : y < 528 ? 56 : 42
       for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) city.glow.add(x + s * sx, y, z + s * sz, C.arasakaRed, 3.2)
     }
     for (let i = 0; i < 4; i++) {

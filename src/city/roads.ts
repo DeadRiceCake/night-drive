@@ -8,7 +8,7 @@ import {
   MeshStandardMaterial, PlaneGeometry, Quaternion, ShaderMaterial, Vector3, type Camera,
 } from 'three'
 import { ATMOS, C, HIGHWAY_HALF, ROAD_HALF, type TimePreset } from '../tokens'
-import { districtAt, isWater, terrainHeight } from './map'
+import { districtAt, groundHeight, isWater, terrainHeight } from './map'
 import { SAMPLE_STEP, type Route, type RouteIndex } from './route'
 import type { CityData } from './generator'
 import { PRESETS } from './generator'
@@ -325,16 +325,10 @@ export function buildTerrain(route: Route, index: RouteIndex): Mesh {
   const tmp = new Color()
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i)
-    let h = terrainHeight(x, z)
     // cut the terrain under the road so hills never poke through the asphalt
     const n = index.nearest(x, z, 60)
-    if (n.i >= 0 && n.d < 60) {
-      const smp = route.samples[n.i]
-      if (smp.kind !== 'highway' || smp.y - h < 4) {
-        const t = 1 - Math.max(0, (n.d - 18) / 42)
-        h = h + (smp.y - 0.35 - h) * Math.min(1, t)
-      }
-    }
+    const smp = n.i >= 0 ? route.samples[n.i] : null
+    const h = groundHeight(x, z, smp ? { d: n.d, y: smp.y, highway: smp.kind === 'highway' } : null)
     pos.setY(i, isWater(x, z) ? -6 : h)
     const d = districtAt(x, z)
     if (d === 'badlands') tmp.copy(sand).lerp(dirt, 0.6 * (vn(x * 0.011, z * 0.013) * 0.7 + vn(x * 0.05, z * 0.047) * 0.3))

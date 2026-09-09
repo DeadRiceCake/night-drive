@@ -9,6 +9,7 @@ import {
 } from 'three'
 import { ATMOS, type TimePreset } from '../tokens'
 import type { Rng } from '../core/rng'
+import { DISTRICTS } from './map'
 
 export interface Tile {
   u0: number
@@ -62,6 +63,8 @@ export interface Atlas {
   /** Reserved tiles for user ads (manifest content). */
   adSlots: Tile[]
   gantries: Tile[]
+  /** gantry tile per district id */
+  gantryFor: Record<string, Tile>
   canvas: HTMLCanvasElement
 }
 
@@ -82,6 +85,7 @@ export function buildAtlas(rng: Rng): Atlas {
   let x = 0, y = 0, rowH = 0
   const alloc = (w: number, h: number): [number, number] => {
     if (x + w > SIZE) { x = 0; y += rowH + 4; rowH = 0 }
+    if (y + h > SIZE) throw new Error(`sign atlas overflow at ${y + h}px`)
     const r: [number, number] = [x, y]
     x += w + 4
     rowH = Math.max(rowH, h)
@@ -131,7 +135,7 @@ export function buildAtlas(rng: Rng): Atlas {
   // horizontal signs
   const hTexts = [...EN, ...JP.slice(0, 14), ...CN.slice(0, 8)]
   for (const t of hTexts) {
-    const w = 384, h = 128
+    const w = 320, h = 104
     const [px, py] = alloc(w, h)
     const color = rng.pick(NEON)
     const isJp = JP.includes(t), isCn = CN.includes(t)
@@ -141,7 +145,7 @@ export function buildAtlas(rng: Rng): Atlas {
   // vertical signs (kanji / katakana / a few EN)
   const vTexts = [...JP, ...CN, 'HOTEL', 'BAR', 'SUSHI', 'KARAOKE', 'RAMEN', 'CLINIC', 'CASINO', 'SAKE']
   for (const t of vTexts) {
-    const w = 96, h = 512
+    const w = 80, h = 420
     const [px, py] = alloc(w, h)
     const color = rng.pick(NEON)
     const isJp = JP.includes(t), isCn = CN.includes(t)
@@ -150,7 +154,7 @@ export function buildAtlas(rng: Rng): Atlas {
   }
   // brand logotypes (rooftop crowns)
   for (const [t, color] of BRANDS) {
-    const w = 640, h = 128
+    const w = 512, h = 104
     const [px, py] = alloc(w, h)
     ctx.save()
     ctx.translate(px, py)
@@ -159,7 +163,7 @@ export function buildAtlas(rng: Rng): Atlas {
     ctx.shadowBlur = 22
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    let size = 96
+    let size = 80
     ctx.font = `bold ${size}px ${FONT_EN}`
     const tw = ctx.measureText(t).width
     if (tw > w * 0.94) { size *= (w * 0.94) / tw; ctx.font = `bold ${size}px ${FONT_EN}` }
@@ -169,7 +173,7 @@ export function buildAtlas(rng: Rng): Atlas {
   }
   // holographic ad posters (portrait)
   for (const [brand, slogan, fg, bg] of AD_LINES) {
-    const w = 320, h = 480
+    const w = 256, h = 384
     const [px, py] = alloc(w, h)
     ctx.save()
     ctx.translate(px, py)
@@ -211,7 +215,7 @@ export function buildAtlas(rng: Rng): Atlas {
   }
   // landscape ads (billboards) drawn from the same lines
   for (const [brand, slogan, fg, bg] of AD_LINES) {
-    const w = 512, h = 256
+    const w = 448, h = 224
     const [px, py] = alloc(w, h)
     ctx.save()
     ctx.translate(px, py)
@@ -236,9 +240,10 @@ export function buildAtlas(rng: Rng): Atlas {
     ads.push(tile(px, py, w, h, 'ad', fg))
   }
   // highway destination gantries
-  const GANTRY = ['WATSON  ↑', 'CITY CENTER  →', 'WESTBROOK  ↑', 'PACIFICA  ↑', 'BADLANDS  →', 'SANTO DOMINGO  ↑', 'HEYWOOD  ←', 'NORTH OAK  ↑', 'JAPANTOWN  →', 'CORPO PLAZA  ↑', 'ARASAKA WATERFRONT  →', 'RANCHO CORONADO  ↑']
-  for (const t of GANTRY) {
-    const w = 512, h = 160
+  const gantryFor: Record<string, Tile> = {}
+  const GANTRY: [string, string][] = [...DISTRICTS.map((d) => [d.id, d.name.toUpperCase() + '  \u2191'] as [string, string]), ['badlands', 'BADLANDS  \u2191']]
+  for (const [id, t] of GANTRY) {
+    const w = 448, h = 140
     const [px, py] = alloc(w, h)
     ctx.save()
     ctx.translate(px, py)
@@ -248,19 +253,21 @@ export function buildAtlas(rng: Rng): Atlas {
     ctx.lineWidth = 5
     ctx.strokeRect(8, 8, w - 16, h - 16)
     ctx.fillStyle = '#f2f6f4'
-    ctx.font = `700 64px ${FONT_EN}`
+    ctx.font = `700 56px ${FONT_EN}`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText(t, 28, h / 2 + 2)
+    ctx.fillText(t, 24, h / 2 + 2)
     ctx.fillStyle = '#fcee0a'
     ctx.font = `600 24px ${FONT_EN}`
     ctx.fillText('NC-' + (rng.int(1, 9) * 10), w - 110, h - 30)
     ctx.restore()
-    gantries.push(tile(px, py, w, h, 'gantry', 0xf2f6f4))
+    const gt = tile(px, py, w, h, 'gantry', 0xf2f6f4)
+    gantries.push(gt)
+    gantryFor[id] = gt
   }
   // reserved user-ad slots (filled later by ads.ts)
-  for (let i = 0; i < 8; i++) {
-    const w = 512, h = 256
+  for (let i = 0; i < 6; i++) {
+    const w = 448, h = 224
     const [px, py] = alloc(w, h)
     ctx.fillStyle = '#101018'
     ctx.fillRect(px, py, w, h)
@@ -273,7 +280,7 @@ export function buildAtlas(rng: Rng): Atlas {
   texture.magFilter = LinearFilter
   texture.anisotropy = 4
   texture.needsUpdate = true
-  return { texture, signs, vsigns, holos, brands, ads, adSlots, gantries, canvas }
+  return { texture, signs, vsigns, holos, brands, ads, adSlots, gantries, gantryFor, canvas }
 }
 
 /** Repaints one reserved slot with an image or text ad. */

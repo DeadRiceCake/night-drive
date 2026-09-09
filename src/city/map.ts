@@ -111,6 +111,19 @@ export function terrainHeight(x: number, z: number): number {
   return h
 }
 
+/**
+ * Terrain height after the road cut: within 60 m of a route sample the ground
+ * blends down to the road surface (mirrors buildTerrain in roads.ts).
+ */
+export function groundHeight(x: number, z: number, near: { d: number; y: number; highway: boolean } | null): number {
+  let h = terrainHeight(x, z)
+  if (near && near.d < 60 && (!near.highway || near.y - h < 4)) {
+    const t = Math.min(1, 1 - Math.max(0, (near.d - 18) / 42))
+    h = h + (near.y - 0.35 - h) * t
+  }
+  return h
+}
+
 export function districtName(id: DistrictId): string {
   return DISTRICT_BY_ID[id].name
 }
